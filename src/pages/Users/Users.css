@@ -1,0 +1,346 @@
+/* Add these new styles to your existing Users.css file */
+
+/* Avatar Styles */
+.users-left-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.users-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e3e7ef;
+}
+
+.users-avatar-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.users-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.users-email {
+  font-size: 0.85rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Role Badge */
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 8px;
+  background: #eef2ff;
+  color: #0d6efd;
+  border: 1.5px solid #e7eafc;
+  white-space: nowrap;
+  text-transform: capitalize;
+  height: 32px;
+  line-height: 1;
+}
+
+/* Details Grid */
+.users-details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+/* Statistics Section */
+.users-stats-section {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #e3e7ef;
+}
+
+.users-stats-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+}
+
+.users-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+}
+
+.users-stat-card {
+  background: #f8fafc;
+  border: 1px solid #e3e7ef;
+  border-radius: 8px;
+  padding: 0.75rem;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.users-stat-card:hover {
+  background: #eef2ff;
+  border-color: #0d6efd;
+  transform: translateY(-2px);
+}
+
+.users-stat-card.highlight {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+}
+
+.users-stat-card.highlight .users-stat-value,
+.users-stat-card.highlight .users-stat-label {
+  color: white;
+}
+
+.users-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0d6efd;
+  line-height: 1;
+}
+
+.users-stat-label {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-top: 0.25rem;
+}
+
+/* Courses Section */
+.users-courses-section {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #e3e7ef;
+}
+
+.users-courses-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+}
+
+.users-courses-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  /* Exactly 2 equal columns */
+  gap: 0.75rem;
+}
+
+.users-course-card {
+  background: #fff;
+  border: 1px solid #e3e7ef;
+  border-radius: 8px;
+  padding: 0.75rem;
+  transition: all 0.2s;
+}
+
+.users-course-card:hover {
+  border-color: #0d6efd;
+  box-shadow: 0 2px 4px rgba(13, 110, 253, 0.08);
+}
+
+.users-course-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.users-course-title {
+  font-weight: 600;
+  color: #334155;
+  font-size: 0.95rem;
+}
+
+.users-course-status {
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 6px;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.users-course-status.completed {
+  background: #dcfce7;
+  color: #059669;
+}
+
+.users-course-status.in_progress {
+  background: #dbeafe;
+  color: #0284c7;
+}
+
+.users-course-status.not_started {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.users-course-details {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  color: #64748b;
+  flex-wrap: wrap;
+}
+
+.users-course-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.users-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: #e3e7ef;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.users-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0d6efd 0%, #667eea 100%);
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+
+.users-progress-text {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.users-list-item {
+  /* padding: 11px; */
+  border-radius: 10px;
+  background-color: #eef2f4;
+}
+
+.expanded {
+  background-color: #d2e1f7;
+}
+
+.users-list-details {
+  padding: 10px;
+
+}
+
+/* Update existing users-list-summary to accommodate new layout */
+.users-list-summary {
+  margin: 2px;
+  border-radius: 10px;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem !important;
+  margin-bottom: 5px !important;
+  cursor: pointer;
+}
+
+/* Responsive Updates */
+@media (max-width: 768px) {
+  .users-list-summary {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .users-left-section {
+    width: 100%;
+  }
+
+  .users-action-group {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .users-details-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .users-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .users-avatar,
+  .users-avatar-placeholder {
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .users-list-name {
+    font-size: 0.95rem;
+  }
+
+  .users-email {
+    font-size: 0.8rem;
+  }
+
+  .status-label,
+  .role-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.6rem;
+    height: 28px;
+  }
+
+  .users-stat-value {
+    font-size: 1.2rem;
+  }
+
+  .users-stat-label {
+    font-size: 0.75rem;
+  }
+
+  .users-course-title {
+    font-size: 0.7rem !important;
+  }
+
+  .users-course-card {
+    padding: 8px;
+  }
+
+  .users-course-details {
+    gap: 1px;
+    font-size: 12px;
+  }
+
+  .users-course-status {
+    font-size: 0.5rem;
+  }
+}
