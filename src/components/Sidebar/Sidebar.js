@@ -54,14 +54,27 @@ function Sidebar({ handleLogout, sidebarOpen, setSidebarOpen }) {
 
           <li className="nav-item">
             <NavLink
-              to="/lms-management"
+              to="/store-management"
               className={({ isActive }) =>
                 `nav-link ${isActive ? 'active' : ''}`
               }
               onClick={closeSidebar}
             >
-              <i className="bi bi-book me-3"></i>
-              LMS Management
+              <i className="bi bi-shop me-3"></i>
+              Store Management
+            </NavLink>
+          </li>
+
+          <li className="nav-item">
+            <NavLink
+              to="/Cart-Billing"
+              className={({ isActive }) =>
+                `nav-link ${isActive ? 'active' : ''}`
+              }
+              onClick={closeSidebar}
+            >
+              <i className="bi bi-cart3 me-3"></i>
+              Cart Billing
             </NavLink>
           </li>
 
