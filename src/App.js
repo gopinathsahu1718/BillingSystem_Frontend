@@ -16,9 +16,14 @@ import Profile from './pages/Profile/Profile';
 import ChangePassword from './pages/ChangePassword/ChangePassword';
 import BillFormat from './components/BillingFormat/BillFormat';
 import BillExample from './components/BillingFormat/BillExample';
-import BillPage from './pages/BillPage/BillPage';
+// import BillPage from './pages/BillPage/BillPage';
 import StoreManagement from './pages/StoreManagement/StoreManagement';
 import CartBilling from './pages/CartBilling/CartBilling';
+import BillingReport from './pages/BillingReport/BillingReport';
+import Billing from './pages/Billing/Billing';
+import BillPage from './pages/BillPage/BillPage';
+
+
 
 // Password Reset Pages
 import ForgotPassword from './pages/PasswordReset/ForgotPassword';
@@ -47,6 +52,7 @@ function AppContent() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-otp" element={<ResetOtp />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/bill-page" element={<BillPage />} />
 
       {/* Protected Routes */}
       <Route
@@ -84,6 +90,10 @@ function AppContent() {
                     <Route path="/feedbacks" element={<Feedbacks />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/profile/change-password" element={<ChangePassword />} />
+                    <Route path="/bill-page" element={<BillPage />} />
+                    <Route path="/billing-report" element={<BillingReport />} />
+                    <Route path="/billing" element={<Billing />} />
+
                   </Routes>
                 </main>
               </div>

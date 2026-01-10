@@ -1,94 +1,92 @@
 import React, { useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import './BillPage.css';
+
+// Function to convert number to words
+const numberToWords = (num) => {
+  if (num === 0) return 'Zero';
+  
+  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+  const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+  const scales = ['', 'Thousand', 'Lakh', 'Crore'];
+
+  const convertHundreds = (n) => {
+    let result = '';
+    const hundred = Math.floor(n / 100);
+    const remainder = n % 100;
+
+    if (hundred > 0) {
+      result += ones[hundred] + ' Hundred';
+    }
+
+    if (remainder > 0) {
+      if (hundred > 0) result += ' ';
+      if (remainder < 10) {
+        result += ones[remainder];
+      } else if (remainder < 20) {
+        result += teens[remainder - 10];
+      } else {
+        const ten = Math.floor(remainder / 10);
+        const one = remainder % 10;
+        result += tens[ten];
+        if (one > 0) {
+          result += ' ' + ones[one];
+        }
+      }
+    }
+
+    return result;
+  };
+
+  if (num < 0) return 'Negative ' + numberToWords(-num);
+
+  let integerPart = Math.floor(num);
+  let decimalPart = Math.round((num - integerPart) * 100);
+
+  if (integerPart === 0) integerPart = 0;
+
+  let words = '';
+  let scaleIndex = 0;
+
+  while (integerPart > 0) {
+    if (integerPart % 1000 !== 0) {
+      words = convertHundreds(integerPart % 1000) + (scales[scaleIndex] ? ' ' + scales[scaleIndex] : '') + (words ? ' ' + words : '');
+    }
+    integerPart = Math.floor(integerPart / 1000);
+    scaleIndex++;
+  }
+
+  let result = words.trim();
+
+  if (decimalPart > 0) {
+    result += ' and ' + decimalPart + ' Paisa';
+  }
+
+  return result;
+};
 
 const BillPage = () => {
   const billRef = useRef();
+  const location = useLocation();
+  const navigate = useNavigate();
 
-  // Dummy data - replace with API data later
-  const billData = {
+  // Get bill data from location state or use empty structure
+  const billData = location.state?.billData || {
     billNo: 'BILL-2025-001',
-    date: '29-12-2025',
-    time: '23:46',
+    date: new Date().toLocaleDateString('en-IN'),
+    time: new Date().toLocaleTimeString('en-IN'),
     gstNo: '21AHBPP7353B1ZT',
-    mobile: '9337966306',
-    customerName: 'John Doe',
-    address: 'Main Road, Paralakhemundi, Odisha - 761200',
-    contactNo: '9876543210',
+    mobile: '',
+    customerName: '',
+    address: '',
+    contactNo: '',
     paymentMode: 'Cash',
-    items: [
-      {
-        id: 1,
-        name: 'Mathematics Textbook Class 10 CBSE',
-        hsn: '49011010',
-        qty: 2,
-        rate: 350.00,
-        discount: 0,
-        taxable: 700.00,
-        cgstRate: 9,
-        cgst: 63.00,
-        sgstRate: 9,
-        sgst: 63.00,
-        total: 826.00
-      },
-      {
-        id: 2,
-        name: 'Premium Geometry Box Set',
-        hsn: '90171000',
-        qty: 1,
-        rate: 150.00,
-        discount: 0,
-        taxable: 150.00,
-        cgstRate: 9,
-        cgst: 13.50,
-        sgstRate: 9,
-        sgst: 13.50,
-        total: 177.00
-      },
-      {
-        id: 3,
-        name: 'Register Copy 200 Pages',
-        hsn: '48201030',
-        qty: 5,
-        rate: 45.00,
-        discount: 0,
-        taxable: 225.00,
-        cgstRate: 9,
-        cgst: 20.25,
-        sgstRate: 9,
-        sgst: 20.25,
-        total: 265.50
-      },
-      {
-        id: 4,
-        name: 'Blue Ball Pen Pack of 10',
-        hsn: '96091010',
-        qty: 3,
-        rate: 50.00,
-        discount: 0,
-        taxable: 150.00,
-        cgstRate: 9,
-        cgst: 13.50,
-        sgstRate: 9,
-        sgst: 13.50,
-        total: 177.00
-      },
-      {
-        id: 5,
-        name: 'Drawing Book A4 Size',
-        hsn: '48201030',
-        qty: 2,
-        rate: 80.00,
-        discount: 0,
-        taxable: 160.00,
-        cgstRate: 9,
-        cgst: 14.40,
-        sgstRate: 9,
-        sgst: 14.40,
-        total: 188.80
-      }
-    ],
-    grandTotal: 1634.30,
-    rupeesInWords: 'One Thousand Six Hundred Thirty Four Rupees and Thirty Paise Only',
+    items: [],
+    cart: [],
+    summary: { totalTax: 0, totalDiscount: 0 },
+    grandTotal: 0,
+    rupeesInWords: '',
     bankDetails: {
       bank: 'SBI, PKD',
       accountNo: '11305057961',
@@ -97,7 +95,86 @@ const BillPage = () => {
     }
   };
 
+  // Auto-generate date and time if not provided, and map mobile to contactNo
+  const grandTotal = billData.summary?.total || billData.grandTotal || 0;
+  const rupeesInWords = billData.rupeesInWords || (grandTotal > 0 ? numberToWords(grandTotal) + ' Rupees Only' : '');
+
+  const finalBillData = {
+    ...billData,
+    date: billData.date || new Date().toLocaleDateString('en-IN'),
+    time: billData.time || new Date().toLocaleTimeString('en-IN'),
+    contactNo: billData.contactNo || billData.mobileNumber || billData.mobile || '',
+    mobile: billData.mobile || billData.mobileNumber || '',
+    rupeesInWords: rupeesInWords
+  };
+
+  // Transform cart items to bill items format
+  const transformCartItems = (cartItems) => {
+    if (!Array.isArray(cartItems)) return [];
+    return cartItems.map((item, index) => ({
+      id: index + 1,
+      name: item.name || '',
+      hsn: item.hsn || '',
+      qty: item.quantity || item.qty || 0,
+      rate: parseFloat(item.price || item.rate || 0),
+      discount: parseFloat(item.discount || 0),
+      taxable: parseFloat(item.baseAmount || item.taxable || 0),
+      cgst: parseFloat(item.cgst || 0),
+      sgst: parseFloat(item.sgst || 0),
+      cgstRate: item.gstRate ? item.gstRate / 2 : 9,
+      sgstRate: item.gstRate ? item.gstRate / 2 : 9,
+      total: parseFloat(item.lineTotal || item.total || 0)
+    }));
+  };
+
+  // Ensure bankDetails always exists
+  const bankDetails = finalBillData.bankDetails || {
+    bank: 'SBI, PKD',
+    accountNo: '11305057961',
+    ifsc: 'SBIN0000151',
+    branch: 'Paralakhemundi'
+  };
+
+  // Ensure items is always an array
+  const items = (finalBillData.items && Array.isArray(finalBillData.items)) 
+    ? transformCartItems(finalBillData.items) 
+    : (finalBillData.cart && Array.isArray(finalBillData.cart)) 
+    ? transformCartItems(finalBillData.cart) 
+    : [];
+
+  const handleBackToBilling = () => {
+    navigate('/billing', { 
+      state: { 
+        cart: finalBillData.cart || [], 
+        summary: finalBillData.summary || {
+          itemCount: 0,
+          taxable: 0,
+          discount: 0,
+          cgst: 0,
+          sgst: 0,
+          total: 0
+        },
+        customerName: finalBillData.customerName,
+        mobileNumber: finalBillData.mobile,
+        paymentMode: finalBillData.paymentMode,
+        store: finalBillData.store
+      } 
+    });
+  };
+
   const handlePrint = () => {
+    // Set document title for print dialog suggestion
+    const originalTitle = document.title;
+    const customerName = finalBillData.customerName.replace(/\s+/g, '_') || 'Customer';
+    const billNo = finalBillData.billNo || 'BILL';
+    document.title = `${billNo}-${customerName}`;
+    
+    // Restore title after print dialog closes
+    window.addEventListener('afterprint', () => {
+      document.title = originalTitle;
+    }, { once: true });
+    
+    // Print the page
     window.print();
   };
 
@@ -123,13 +200,22 @@ const BillPage = () => {
     const pdfHeight = 297; // A4 height in mm
 
     pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-    pdf.save(`Bill-${billData.billNo}.pdf`);
+    
+    // Generate filename with customer name
+    const customerName = finalBillData.customerName.replace(/\s+/g, '_') || 'Customer';
+    const billNo = finalBillData.billNo || 'BILL';
+    const fileName = `${billNo}-${customerName}.pdf`;
+    
+    pdf.save(fileName);
   };
 
   return (
     <div className="bill-page-wrapper">
       {/* Action Buttons - Hidden during print */}
       <div className="action-buttons no-print">
+        <button onClick={handleBackToBilling} className="btn-back">
+          ← Back to Billing
+        </button>
         <button onClick={handlePrint} className="btn-print">
           🖨️ Print Bill
         </button>
@@ -158,7 +244,9 @@ const BillPage = () => {
                 <p className="company-location">Girls High School Road, Paralakhemundi</p>
                 
                 <div className="enterprise-block">
-                  <h2 className="enterprise-title">SWASTIK ENTERPRISE</h2>
+                  <h2 className="enterprise-title">
+                    {finalBillData.store === 'swastik' ? 'SWASTIK ENTERPRISE' : 'LAKSHMI BOOKSTORE'}
+                  </h2>
                   <div className="bill-type-badge">TAX INVOICE</div>
                 </div>
               </div>
@@ -175,27 +263,27 @@ const BillPage = () => {
               <div className="info-box">
                 <div>
                     <span className="info-label">GST No:</span>
-                    <span className="info-value">{billData.gstNo}</span>
+                    <span className="info-value">21AAACC1206D2ZR</span>
                 </div>
                 <div>
                     <span className="info-label">Mobile:</span>
-                    <span className="info-value">{billData.mobile}</span>
+                    <span className="info-value">9692405306</span>
                 </div>
               </div>
             </div>
             <div className="bill-meta-row">
               <div className="meta-item">
                 <span className="info-label">Bill No:</span>
-                <span className="meta-value">{billData.billNo}</span>
+                <span className="meta-value">{finalBillData.billNo}</span>
               </div>
               <div className="meta-item">
                 <span className="info-label">Date:</span>
-                <span className="meta-value">{billData.date}</span>
+                <span className="meta-value">{finalBillData.date}</span>
                 {/* <span className="icon">📅</span> */}
               </div>
               <div className="meta-item">
                 <span className="info-label">Time:</span>
-                <span className="meta-value">{billData.time}</span>
+                <span className="meta-value">{finalBillData.time}</span>
                 {/* <span className="icon">🕐</span> */}
               </div>
             </div>
@@ -206,22 +294,22 @@ const BillPage = () => {
             <div className="customer-row">
               <span className="customer-icon">👤</span>
               <span className="customer-label">Customer Name:</span>
-              <span className="customer-value">{billData.customerName}</span>
+              <span className="customer-value">{finalBillData.customerName}</span>
             </div>
             <div className="customer-row">
               <span className="customer-icon">📍</span>
               <span className="customer-label">Address:</span>
-              <span className="customer-value">{billData.address}</span>
+              <span className="customer-value">{finalBillData.address}</span>
             </div>
             <div className="customer-row">
               <span className="customer-icon">📞</span>
               <span className="customer-label">Contact No:</span>
-              <span className="customer-value">{billData.contactNo}</span>
+              <span className="customer-value">{finalBillData.contactNo}</span>
             </div>
             <div className="customer-row">
               <span className="customer-icon">💳</span>
               <span className="customer-label">Payment Mode:</span>
-              <span className="customer-value">{billData.paymentMode}</span>
+              <span className="customer-value">{finalBillData.paymentMode}</span>
             </div>
           </div>
 
@@ -242,41 +330,49 @@ const BillPage = () => {
               </tr>
             </thead>
             <tbody>
-              {billData.items.map((item) => (
-                <tr key={item.id}>
-                  <td className="text-center">{item.id}</td>
-                  <td className="text-left">{item.name}</td>
-                  <td className="text-center">{item.hsn}</td>
-                  <td className="text-center">{item.qty}</td>
-                  <td className="text-right">{item.rate.toFixed(2)}</td>
-                  <td className="text-right">{item.discount.toFixed(2)}</td>
-                  <td className="text-right">{item.taxable.toFixed(2)}</td>
-                  <td className="text-right">
-                    {item.cgst.toFixed(2)}
-                    <br/>
-                    <span className="tax-rate">({item.cgstRate}%)</span>
+              {items.length > 0 ? (
+                items.map((item) => (
+                  <tr key={item.id}>
+                    <td className="text-center">{item.id}</td>
+                    <td className="text-left">{item.name}</td>
+                    <td className="text-center">{item.hsn}</td>
+                    <td className="text-center">{item.qty}</td>
+                    <td className="text-right">{item.rate.toFixed(2)}</td>
+                    <td className="text-right">{item.discount.toFixed(2)}</td>
+                    <td className="text-right">{item.taxable.toFixed(2)}</td>
+                    <td className="text-right">
+                      {item.cgst.toFixed(2)}
+                      <br/>
+                      <span className="tax-rate">({item.cgstRate}%)</span>
+                    </td>
+                    <td className="text-right">
+                      {item.sgst.toFixed(2)}
+                      <br/>
+                      <span className="tax-rate">({item.sgstRate}%)</span>
+                    </td>
+                    <td className="text-right">{item.total.toFixed(2)}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="10" className="text-center" style={{padding: '20px', color: '#999'}}>
+                    No items in this bill
                   </td>
-                  <td className="text-right">
-                    {item.sgst.toFixed(2)}
-                    <br/>
-                    <span className="tax-rate">({item.sgstRate}%)</span>
-                  </td>
-                  <td className="text-right">{item.total.toFixed(2)}</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
 
           {/* Grand Total */}
           <div className="grand-total-row">
             <span className="total-label">Grand Total:</span>
-            <div className="total-amount">₹ {billData.grandTotal.toFixed(2)}</div>
+            <div className="total-amount">₹ {((finalBillData.summary?.total || finalBillData.grandTotal) || 0).toFixed(2)}</div>
           </div>
 
           {/* Rupees in Words */}
           <div className="amount-words">
             <span className="words-label">Rupees (in words):</span>
-            <span className="words-value">{billData.rupeesInWords}</span>
+            <span className="words-value">{finalBillData.rupeesInWords || ''}</span>
           </div>
 
           {/* Payment Details */}
@@ -288,19 +384,19 @@ const BillPage = () => {
             <div className="bank-info">
               <div className="bank-item">
                 <span className="bank-label">Bank:</span>
-                <span className="bank-value">{billData.bankDetails.bank}</span>
+                <span className="bank-value">{bankDetails.bank}</span>
               </div>
               <div className="bank-item">
                 <span className="bank-label">A/C No:</span>
-                <span className="bank-value">{billData.bankDetails.accountNo}</span>
+                <span className="bank-value">{bankDetails.accountNo}</span>
               </div>
               <div className="bank-item">
                 <span className="bank-label">Branch:</span>
-                <span className="bank-value">{billData.bankDetails.branch}</span>
+                <span className="bank-value">{bankDetails.branch}</span>
               </div>
               <div className="bank-item">
                 <span className="bank-label">IFSC Code:</span>
-                <span className="bank-value">{billData.bankDetails.ifsc}</span>
+                <span className="bank-value">{bankDetails.ifsc}</span>
               </div>
             </div>
           </div>

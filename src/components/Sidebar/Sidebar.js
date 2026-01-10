@@ -77,6 +77,32 @@ function Sidebar({ handleLogout, sidebarOpen, setSidebarOpen }) {
               Cart Billing
             </NavLink>
           </li>
+          
+          <li className="nav-item">
+            <NavLink
+              to="/billing"
+              className={({ isActive }) =>
+                `nav-link ${isActive ? 'active' : ''}`
+              }
+              onClick={closeSidebar}
+            >
+              <i className="bi bi-receipt me-3"></i>
+              Billing
+            </NavLink>
+          </li>
+
+          <li className="nav-item">
+            <NavLink
+              to="/billing-report"
+              className={({ isActive }) =>
+                `nav-link ${isActive ? 'active' : ''}`
+              }
+              onClick={closeSidebar}
+            >
+              <i className="bi bi-file-earmark-bar-graph me-3"></i>
+              Billing Reports
+            </NavLink>
+          </li>
 
           {/* Updated: Changed URL to /user-registration-progress */}
           <li className="nav-item">

@@ -38,7 +38,8 @@ body {
 }
 
 .btn-print,
-.btn-download {
+.btn-download,
+.btn-back {
   padding: 12px 28px;
   font-size: 14px;
   font-weight: 600;
@@ -71,6 +72,17 @@ body {
   background: #229954;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
+}
+
+.btn-back {
+  background: #95a5a6;
+  color: white;
+}
+
+.btn-back:hover {
+  background: #7f8c8d;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(149, 165, 166, 0.4);
 }
 
 /* Bill Container - Fixed A4 Size */
@@ -129,6 +141,14 @@ body {
 .goddess-icon {
   width: 100%;
   height: 100%;
+}
+
+.ganesh-logo,
+.goddess-logo {
+  width: 25mm;
+  height: 25mm;
+  object-fit: contain;
+  display: block;
 }
 
 .header-center {
@@ -320,19 +340,19 @@ body {
 }
 
 /* Fixed Column Widths - Adjusted to fit page with discount column */
-.col-serial { width: 4mm; }
-.col-item { width: 40mm; text-align: left !important; }
-.col-hsn { width: 16mm; }
-.col-qty { width: 9mm; }
-.col-rate { width: 14mm; }
+.col-serial { width: 5mm; }
+.col-item { width: 35mm; text-align: left !important; }
+.col-hsn { width: 12mm; }
+.col-qty { width: 8mm; }
+.col-rate { width: 15mm; }
 .col-discount { width: 15mm; }
 .col-taxable { width: 16mm; }
 .col-tax { 
-  width: 16mm; 
+  width: 14mm; 
   background: #e74c3c !important;
   color: white !important;
 }
-.col-total { width: 16mm; }
+.col-total { width: 18mm; }
 
 /* Tax percentage styling in header */
 .tax-percent {
@@ -366,18 +386,23 @@ body {
   min-height: 10mm;
   vertical-align: middle;
   font-size: 8pt;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-wrap: break-word;
 }
 
-.text-center { text-align: center; }
+.text-center { 
+  text-align: center;
+  white-space: nowrap;
+}
 .text-left { 
   text-align: left; 
   white-space: normal !important;
   word-wrap: break-word;
 }
-.text-right { text-align: right; }
+.text-right { 
+  text-align: right;
+  white-space: nowrap;
+}
 
 /* Grand Total */
 .grand-total-row {
@@ -403,6 +428,7 @@ body {
   border-radius: 2mm;
   background: white;
   min-width: 30mm;
+  white-space: nowrap;
   text-align: center;
 }
 
