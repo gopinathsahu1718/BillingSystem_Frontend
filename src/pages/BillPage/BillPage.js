@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './BillPage.css';
 
@@ -71,7 +71,7 @@ const BillPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Get bill data from location state or use empty structure
+  // Get bill data from location state
   const billData = location.state?.billData || {
     billNo: 'BILL-2025-001',
     date: new Date().toLocaleDateString('en-IN'),
@@ -94,6 +94,8 @@ const BillPage = () => {
       branch: 'Paralakhemundi'
     }
   };
+
+  const autoDownload = location.state?.autoDownload || false;
 
   // Auto-generate date and time if not provided, and map mobile to contactNo
   const grandTotal = billData.summary?.total || billData.grandTotal || 0;
@@ -121,9 +123,13 @@ const BillPage = () => {
       taxable: parseFloat(item.baseAmount || item.taxable || 0),
       cgst: parseFloat(item.cgst || 0),
       sgst: parseFloat(item.sgst || 0),
-      cgstRate: item.gstRate ? item.gstRate / 2 : 9,
-      sgstRate: item.gstRate ? item.gstRate / 2 : 9,
-      total: parseFloat(item.lineTotal || item.total || 0)
+      cgstRate: item.gst ? item.gst / 2 : 9,
+      sgstRate: item.gst ? item.gst / 2 : 9,
+      total: parseFloat(
+        (item.lineTotal || item.total || 0) - 
+       ((item.lineTotal || item.total || 0) * (item.discount || 0)) / 100
+      ),
+      attributeName: item.attributeName || null
     }));
   };
 
@@ -142,24 +148,18 @@ const BillPage = () => {
     ? transformCartItems(finalBillData.cart) 
     : [];
 
+  // Auto-download PDF when autoDownload flag is true
+  useEffect(() => {
+    if (autoDownload && billRef.current) {
+      // Wait for component to render completely
+      setTimeout(() => {
+        handleDownload();
+      }, 1000);
+    }
+  }, [autoDownload]);
+
   const handleBackToBilling = () => {
-    navigate('/billing', { 
-      state: { 
-        cart: finalBillData.cart || [], 
-        summary: finalBillData.summary || {
-          itemCount: 0,
-          taxable: 0,
-          discount: 0,
-          cgst: 0,
-          sgst: 0,
-          total: 0
-        },
-        customerName: finalBillData.customerName,
-        mobileNumber: finalBillData.mobile,
-        paymentMode: finalBillData.paymentMode,
-        store: finalBillData.store
-      } 
-    });
+    navigate('/billing-report');
   };
 
   const handlePrint = () => {
@@ -179,34 +179,46 @@ const BillPage = () => {
   };
 
   const handleDownload = async () => {
-    // Import dynamically only when needed
-    const html2canvas = (await import('html2canvas')).default;
-    const jsPDF = (await import('jspdf')).default;
+    try {
+      // Import dynamically only when needed
+      const html2canvas = (await import('html2canvas')).default;
+      const jsPDF = (await import('jspdf')).default;
 
-    const element = billRef.current;
-    
-    // Create canvas with high quality
-    const canvas = await html2canvas(element, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      windowWidth: 794, // A4 width in pixels at 96 DPI
-      windowHeight: 1123 // A4 height in pixels at 96 DPI
-    });
+      const element = billRef.current;
+      
+      // Create canvas with high quality
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        windowWidth: 794, // A4 width in pixels at 96 DPI
+        windowHeight: 1123 // A4 height in pixels at 96 DPI
+      });
 
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pdfWidth = 210; // A4 width in mm
-    const pdfHeight = 297; // A4 height in mm
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = 210; // A4 width in mm
+      const pdfHeight = 297; // A4 height in mm
 
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-    
-    // Generate filename with customer name
-    const customerName = finalBillData.customerName.replace(/\s+/g, '_') || 'Customer';
-    const billNo = finalBillData.billNo || 'BILL';
-    const fileName = `${billNo}-${customerName}.pdf`;
-    
-    pdf.save(fileName);
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      
+      // Generate filename with customer name
+      const customerName = finalBillData.customerName.replace(/\s+/g, '_') || 'Customer';
+      const billNo = finalBillData.billNo || 'BILL';
+      const fileName = `${billNo}-${customerName}.pdf`;
+      
+      pdf.save(fileName);
+
+      // If auto-download, navigate back to reports after download
+      if (autoDownload) {
+        setTimeout(() => {
+          navigate('/billing-report');
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Failed to download PDF:', error);
+      alert('Failed to download PDF. Please try again.');
+    }
   };
 
   return (
@@ -214,7 +226,7 @@ const BillPage = () => {
       {/* Action Buttons - Hidden during print */}
       <div className="action-buttons no-print">
         <button onClick={handleBackToBilling} className="btn-back">
-          ← Back to Billing
+          ← Back to {autoDownload ? 'Reports' : 'Billing'}
         </button>
         <button onClick={handlePrint} className="btn-print">
           🖨️ Print Bill
@@ -245,7 +257,7 @@ const BillPage = () => {
                 
                 <div className="enterprise-block">
                   <h2 className="enterprise-title">
-                    {finalBillData.store === 'swastik' ? 'SWASTIK ENTERPRISE' : 'LAKSHMI BOOKSTORE'}
+                    {finalBillData.store === 'swasthik' ? 'SWASTIK ENTERPRISE' : 'LAKSHMI BOOKSTORE'}
                   </h2>
                   <div className="bill-type-badge">TAX INVOICE</div>
                 </div>
@@ -279,12 +291,10 @@ const BillPage = () => {
               <div className="meta-item">
                 <span className="info-label">Date:</span>
                 <span className="meta-value">{finalBillData.date}</span>
-                {/* <span className="icon">📅</span> */}
               </div>
               <div className="meta-item">
                 <span className="info-label">Time:</span>
                 <span className="meta-value">{finalBillData.time}</span>
-                {/* <span className="icon">🕐</span> */}
               </div>
             </div>
           </div>
@@ -299,7 +309,7 @@ const BillPage = () => {
             <div className="customer-row">
               <span className="customer-icon">📍</span>
               <span className="customer-label">Address:</span>
-              <span className="customer-value">{finalBillData.address}</span>
+              <span className="customer-value">{finalBillData.address || '-'}</span>
             </div>
             <div className="customer-row">
               <span className="customer-icon">📞</span>
@@ -334,7 +344,14 @@ const BillPage = () => {
                 items.map((item) => (
                   <tr key={item.id}>
                     <td className="text-center">{item.id}</td>
-                    <td className="text-left">{item.name}</td>
+                    <td className="text-left">
+                      {item.name}
+                      {item.attributeName && (
+                        <div style={{ fontSize: '0.85em', color: '#666', marginTop: '2px' }}>
+                          {item.attributeName}
+                        </div>
+                      )}
+                    </td>
                     <td className="text-center">{item.hsn}</td>
                     <td className="text-center">{item.qty}</td>
                     <td className="text-right">{item.rate.toFixed(2)}</td>
@@ -403,7 +420,7 @@ const BillPage = () => {
 
           {/* Footer */}
           <div className="bill-footer">
-            <div className="footer-company">For SWASTIK ENTERPRISE</div>
+            <div className="footer-company">{finalBillData.store === 'swastik' ? 'SWASTIK ENTERPRISE' : 'LAKSHMI BOOKSTORE'}</div>
             <div className="signature-area">
               <div className="signature-line">Authorized Signatory</div>
             </div>

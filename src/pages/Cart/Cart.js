@@ -1,20 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import axios from 'axios';
 import './Cart.css';
-import itemsData from '../../context/itemsData'; 
+import { useAuth } from '../../context/AuthContext';
+
+const BASE_URL = 'http://13.232.200.172/api';
 
 const Cart = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [search, setSearch] = useState('');
-  const [customer, setCustomer] = useState('');
+  const { token } = useAuth();
+  
   const [customerName, setCustomerName] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
+  const [address, setAddress] = useState('');
   const [paymentMode, setPaymentMode] = useState('cash');
   const [cart, setCart] = useState([]);
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState('');
-  const [suggestions, setSuggestions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [errors, setErrors] = useState({
+    customerName: false,
+    mobileNumber: false,
+    address: false
+  });
   const [summary, setSummary] = useState({
     itemCount: 0,
     taxable: 0,
@@ -24,124 +33,85 @@ const Cart = () => {
     total: 0
   });
 
-  // Restore cart data when coming back from template
-  useEffect(() => {
-    if (location.state?.cart) {
-      const restoredCart = location.state.cart.map(item => ({
-        ...item,
-        quantity: parseInt(item.qty) || item.quantity || 1,
-        price: parseFloat(item.rate) || item.price || 0,
-        discount: item.discount || 0,
-        lineTotal: parseFloat(item.lineTotal) || parseFloat(item.total) || 0,
-        baseAmount: parseFloat(item.baseAmount) || parseFloat(item.taxable) || 0,
-        cgst: parseFloat(item.cgst) || 0,
-        sgst: parseFloat(item.sgst) || 0
-      }));
-      setCart(restoredCart);
-      
-      // Recalculate summary based on restored cart
-      if (location.state?.summary && location.state.summary.total > 0) {
-        setSummary(location.state.summary);
-      } else {
-        // Recalculate if summary is missing or has zero total
-        const newSummary = restoredCart.reduce(
-          (acc, itm) => {
-            const discountAmount = (itm.lineTotal * itm.discount) / 100;
-            acc.itemCount += itm.quantity;
-            acc.taxable += itm.baseAmount;
-            acc.discount += discountAmount;
-            acc.cgst += itm.cgst;
-            acc.sgst += itm.sgst;
-            acc.total += itm.lineTotal - discountAmount;
-            return acc;
-          },
-          { itemCount: 0, taxable: 0, discount: 0, cgst: 0, sgst: 0, total: 0 }
-        );
-        setSummary(newSummary);
+  // Fetch cart items from API
+  const fetchCart = async () => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await axios.get(`${BASE_URL}/cart`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.data?.success) {
+        const cartData = response.data.data || [];
+        
+        // Transform API cart data to match component structure
+        const transformedCart = cartData.map(item => {
+          // Use effectivePrice if variant exists, otherwise use product price
+          const price = item.effectivePrice 
+            ? parseFloat(item.effectivePrice) 
+            : parseFloat(item.product?.price || 0);
+          
+          const gstRate = parseFloat(item.product?.gstRate || 0);
+          const quantity = parseInt(item.quantity || 1);
+          const discount = parseFloat(item.discount || 0);
+          
+          // Calculate line total
+          const lineTotal = price * quantity;
+          
+          // Calculate base amount (price excluding GST)
+          const baseAmount = (lineTotal * 100) / (100 + gstRate);
+          
+          // Calculate GST amount
+          const gstAmount = lineTotal - baseAmount;
+          
+          // Split GST into CGST and SGST
+          const cgst = gstAmount / 2;
+          const sgst = gstAmount / 2;
+
+          return {
+            id: item.id,
+            cartId: item.id,
+            productId: item.productId,
+            name: item.product?.name || 'Product',
+            hsn: item.effectiveSKU || item.product?.sku || '',
+            quantity: quantity,
+            price: price, // This now uses effectivePrice for variants
+            discount: discount,
+            gst: gstRate,
+            store: item.product?.category?.name?.toLowerCase().replace(/\s+/g, '_') || '',
+            attributeId: item.attributeId,
+            attributeName: item.attribute 
+              ? `${item.attribute.attributeName}: ${item.attribute.attributeValue}` 
+              : null,
+            lineTotal: lineTotal,
+            baseAmount: baseAmount,
+            cgst: cgst,
+            sgst: sgst
+          };
+        });
+
+        setCart(transformedCart);
+        recalcSummary(transformedCart);
       }
-    }
-    
-    // Restore customer details
-    if (location.state?.customerName) {
-      setCustomerName(location.state.customerName);
-    }
-    if (location.state?.mobileNumber) {
-      setMobileNumber(location.state.mobileNumber);
-    }
-    if (location.state?.paymentMode) {
-      setPaymentMode(location.state.paymentMode);
-    }
-    if (location.state?.store) {
-      setCustomer(location.state.store);
-    }
-  }, [location]);
-
-  const addItem = (item) => {
-    // store selection
-    if (!customer) {
-      setPopupMessage('Please select a store first');
+    } catch (error) {
+      console.error('Failed to fetch cart:', error);
+      setPopupMessage('Failed to load cart items');
       setShowPopup(true);
-      return;
+    } finally {
+      setLoading(false);
     }
-    // store validation
-    if (item.store !== customer) {
-      setPopupMessage(`${item.name} is not available in ${customer === 'swasthik' ? 'Swasthik Enterprise' : 'Lakshmi Bookstore'}`);
-      setShowPopup(true);
-      return;
-    }
-
-    const existingIndex = cart.findIndex(
-      (cartItem) => cartItem.name === item.name && cartItem.hsn === item.hsn
-    );
-    let updatedCart;
-    // logic to add item 
-    if (existingIndex !== -1) {
-      const existingItem = cart[existingIndex];
-      const newQuantity = existingItem.quantity + 1;
-    //logic to recalculate
-      const gstPercent = item.gst || 0;
-      const lineTotal = item.price * newQuantity;
-      const baseAmount = (lineTotal * 100) / (100 + gstPercent);
-      const gstAmount = lineTotal - baseAmount;
-      const cgst = gstAmount / 2;
-      const sgst = gstAmount / 2;
-
-      const updatedItem = {
-        ...existingItem,
-        quantity: newQuantity,
-        lineTotal,
-        baseAmount,
-        cgst,
-        sgst
-      };
-
-      updatedCart = [...cart];
-      updatedCart[existingIndex] = updatedItem;
-    } else {
-      const gstPercent = item.gst || 0;
-      const lineTotal = item.price * 1;
-      const baseAmount = (lineTotal * 100) / (100 + gstPercent);
-      const gstAmount = lineTotal - baseAmount;
-      const cgst = gstAmount / 2;
-      const sgst = gstAmount / 2;
-
-      const newItem = {
-        ...item,
-        quantity: 1,
-        discount: 0,
-        lineTotal,
-        baseAmount,
-        cgst,
-        sgst
-      };
-
-      updatedCart = [...cart, newItem];
-    }
-
-    setCart(updatedCart);
-    recalcSummary(updatedCart);
   };
-    // Recalculate summary
+
+  useEffect(() => {
+    fetchCart();
+  }, [token]);
+
+  // Recalculate summary
   const recalcSummary = (updatedCart) => {
     const newSummary = updatedCart.reduce(
       (acc, itm) => {
@@ -159,121 +129,153 @@ const Cart = () => {
     setSummary(newSummary);
   };
 
-  // Search 
-  const handleSearch = (e) => {
-    const value = e.target.value;
-    setSearch(value);
-
-    // Generate suggestions - only items starting with search term
-    if (value.trim()) {
-      const filtered = itemsData.filter((item) =>
-        item.name.toLowerCase().startsWith(value.toLowerCase())
+  // Update quantity in API
+  const updateQuantity = async (index, newQuantity) => {
+    if (newQuantity < 1 || isNaN(newQuantity)) newQuantity = 1;
+    
+    const item = cart[index];
+    
+    try {
+      const response = await axios.put(
+        `${BASE_URL}/cart/${item.cartId}`,
+        { quantity: newQuantity },
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-      setSuggestions(filtered);
-    } else {
-      setSuggestions([]);
+
+      if (response.data?.success) {
+        // Refresh cart to get updated effectivePrice and calculations from backend
+        fetchCart();
+      }
+    } catch (error) {
+      console.error('Failed to update quantity:', error);
+      setPopupMessage('Failed to update quantity');
+      setShowPopup(true);
     }
   };
 
-  const handleSelectSuggestion = (item) => {
-    addItem(item);
-    setSearch('');
-    setSuggestions([]);
-  };
+  // Update discount (local only - API doesn't support this yet)
+  const updateDiscount = (index, discountPercent) => {
+    if (discountPercent < 0) discountPercent = 0;
+    if (discountPercent > 100) discountPercent = 100;
 
-  // Legacy search handler for form submission
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    if (!search.trim()) return;
+    const updatedCart = [...cart];
+    updatedCart[index] = {
+      ...updatedCart[index],
+      discount: discountPercent
+    };
 
-    const foundItem = itemsData.find((itm) =>
-      itm.name.toLowerCase().startsWith(search.toLowerCase())
-    );
-
-    if (foundItem) {
-      addItem(foundItem);
-      setSearch('');
-      setSuggestions([]);
-    } else {
-      alert("Item not found!");
-    }
-  };
-// update quantity
-  const updateQuantity = (index, newQuantity) => {
-  if (newQuantity < 1 || isNaN(newQuantity)) newQuantity = 1; 
-  const updatedCart = [...cart];
-  const item = updatedCart[index];
-// Recalculate amounts after update 
-  const gstPercent = item.gst || 0;
-  const lineTotal = item.price * newQuantity;
-  const baseAmount = (lineTotal * 100) / (100 + gstPercent);
-  const gstAmount = lineTotal - baseAmount;
-  const cgst = gstAmount / 2;
-  const sgst = gstAmount / 2;
-
-  updatedCart[index] = {
-    ...item,
-    quantity: newQuantity,
-    lineTotal,
-    baseAmount,
-    cgst,
-    sgst
-  };
-
-  setCart(updatedCart);
-  recalcSummary(updatedCart);
-};
-
-// update discount
-const updateDiscount = (index, discountPercent) => {
-  if (discountPercent < 0) discountPercent = 0;
-  if (discountPercent > 100) discountPercent = 100;
-
-  const updatedCart = [...cart];
-  updatedCart[index] = {
-    ...updatedCart[index],
-    discount: discountPercent
-  };
-
-  setCart(updatedCart);
-  recalcSummary(updatedCart);
-};
-// delete item
-  const deleteItem = (index) => {
-    const updatedCart = cart.filter((_, i) => i !== index);
     setCart(updatedCart);
     recalcSummary(updatedCart);
   };
-// generate bill
-  const handleGenerateBill = () => {
-    if (!customerName.trim() || !mobileNumber.trim()) {
-      setPopupMessage('Please fill in customer name and mobile number');
+
+  // Delete item from cart
+  const deleteItem = async (index) => {
+    const item = cart[index];
+    
+    try {
+      const response = await axios.delete(`${BASE_URL}/cart/${item.cartId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.data?.success) {
+        const updatedCart = cart.filter((_, i) => i !== index);
+        setCart(updatedCart);
+        recalcSummary(updatedCart);
+      }
+    } catch (error) {
+      console.error('Failed to delete item:', error);
+      setPopupMessage('Failed to remove item from cart');
+      setShowPopup(true);
+    }
+  };
+
+  // Validate form
+  const validateForm = () => {
+    const newErrors = {
+      customerName: !customerName.trim(),
+      mobileNumber: !mobileNumber.trim() || mobileNumber.trim().length < 10,
+      address: !address.trim()
+    };
+
+    setErrors(newErrors);
+
+    // Check if any error exists
+    return !Object.values(newErrors).some(error => error);
+  };
+
+  // Generate bill and save to API
+  const handleGenerateBill = async () => {
+    // Validate form first
+    if (!validateForm()) {
+      setPopupMessage('Please fill in all required fields correctly');
       setShowPopup(true);
       return;
     }
+
     if (cart.length === 0) {
       setPopupMessage('Cart is empty! Please add items.');
       setShowPopup(true);
       return;
     }
 
-    const billData = {
-      billNo: `BILL-${Date.now()}`,
-      date: new Date().toLocaleDateString('en-IN'),
-      time: new Date().toLocaleTimeString('en-IN'),
-      customerName,
-      mobile: mobileNumber,
-      store: customer,
-      paymentMode,
-      cart,
-      summary
-    };
+    try {
+      // Prepare bill data for API
+      const billPayload = {
+        customerName,
+        customerContact: mobileNumber,
+        address: address,
+        paymentMethod: paymentMode,
+        items: cart.map(item => ({
+          productId: item.productId,
+          attributeId: item.attributeId || null,
+          quantity: item.quantity,
+          price: item.price, // This now includes the correct variant price
+          discount: item.discount || 0
+        })),
+        subtotal: summary.taxable,
+        discount: summary.discount,
+        cgst: summary.cgst,
+        sgst: summary.sgst,
+        total: summary.total
+      };
 
-    // Navigate to BillPage with bill data
-    navigate('/bill-page', { state: { billData } });
+      const response = await axios.post(`${BASE_URL}/bills`, billPayload, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.data?.success) {
+        const billData = {
+          billNo: response.data.data.billNumber || `BILL-${Date.now()}`,
+          id: response.data.data.id,
+          date: new Date().toLocaleDateString('en-IN'),
+          time: new Date().toLocaleTimeString('en-IN'),
+          customerName,
+          mobile: mobileNumber,
+          address: address,
+          store: cart[0]?.store || 'lakshmi',
+          paymentMode,
+          cart,
+          summary
+        };
+
+        // Clear cart after successful bill generation
+        await axios.delete(`${BASE_URL}/cart/clear`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(err => console.error('Failed to clear cart:', err));
+
+        // Navigate to bill page
+        navigate('/bill-page', { state: { billData } });
+      }
+    } catch (error) {
+      console.error('Failed to generate bill:', error);
+      const errorMsg = error.response?.data?.message || 'Failed to generate bill';
+      setPopupMessage(errorMsg);
+      setShowPopup(true);
+    }
   };
-
-
 
   return (
     <div className="billing-main-page">
@@ -305,207 +307,253 @@ const updateDiscount = (index, discountPercent) => {
         </div>
       )}
 
-      {/* Header */}
+      {/* Header with Breadcrumbs */}
       <div className="billing-main-header">
+        <div className="breadcrumbs">
+          <span onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>Dashboard</span>
+          <i className="bi bi-chevron-right"></i>
+          <span className="active">Billing Cart</span>
+        </div>
         <h2 className="billing-main-title">
-          <i className="bi bi-receipt me-2"></i> Billing
+          <i className="bi bi-cart3 me-2"></i> Billing Cart
         </h2>
       </div>
 
-      {/* Search */}
-      <form className="billing-main-search-section" onSubmit={handleSearchSubmit}>
-        <div className="billing-main-search-container">
-          <div className="billing-main-search-row">
-            <div className="billing-main-search-input-wrapper">
-              <input
-                type="text"
-                className="billing-main-search-input"
-                placeholder="Search items for billing..."
-                value={search}
-                onChange={handleSearch}
-                autoComplete="off"
-              />
-              {search && (
-                <button
-                  type="button"
-                  className="billing-main-clear-search-btn"
-                  onClick={() => {
-                    setSearch('');
-                    setSuggestions([]);
-                  }}
+      {loading ? (
+        <div className="loading-container" style={{ textAlign: 'center', padding: '50px' }}>
+          <i className="bi bi-hourglass-split" style={{ fontSize: '48px' }}></i>
+          <p>Loading cart...</p>
+        </div>
+      ) : (
+        <>
+          <div className="billing-main-body">
+            <div className="billing-main-cart-section">
+              <h3><i className="bi bi-cart-check"></i> Cart Items</h3>
+              {cart.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '50px' }}>
+                  <i className="bi bi-cart-x" style={{ fontSize: '48px', color: '#ccc' }}></i>
+                  <p>Your cart is empty</p>
+                  <button 
+                    onClick={() => navigate('/products')}
+                    style={{ marginTop: '20px' }}
+                    className="billing-main-generate-bill-btn"
+                  >
+                    <i className="bi bi-box-seam" style={{ marginRight: '8px' }}></i>
+                    Browse Products
+                  </button>
+                </div>
+              ) : (
+                <table className="billing-main-cart-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Item</th>
+                      <th>Variant</th>
+                      <th>HSN</th>
+                      <th>Qty</th>
+                      <th>Price</th>
+                      <th>Taxable</th>    
+                      <th>GST%</th>
+                      <th>CGST</th>
+                      <th>SGST</th>
+                      <th>Discount%</th>
+                      <th>Total</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cart.map((item, idx) => (
+                      <tr key={item.cartId}>
+                        <td>{idx + 1}</td>
+                        <td>{item.name}</td>
+                        <td>{item.attributeName || '-'}</td>
+                        <td>{item.hsn}</td>
+                        <td>
+                          <input
+                            type="number"
+                            className="billing-main-qty-input"
+                            value={item.quantity}
+                            min="1"
+                            onChange={(e) =>
+                              updateQuantity(idx, parseInt(e.target.value) || 1)
+                            }
+                          />
+                        </td>
+                        <td>₹{item.price.toFixed(2)}</td>
+                        <td>₹{item.baseAmount.toFixed(2)}</td>
+                        <td>{item.gst || 0}%</td>
+                        <td>₹{item.cgst.toFixed(2)}</td>
+                        <td>₹{item.sgst.toFixed(2)}</td>
+                        <td>
+                          <input
+                            type="number"
+                            className="billing-main-qty-input"
+                            value={item.discount || 0}
+                            min="0"
+                            max="100"
+                            onChange={(e) =>
+                              updateDiscount(idx, parseFloat(e.target.value) || 0)
+                            }
+                          />
+                        </td>
+                        <td>₹{(item.lineTotal - (item.lineTotal * item.discount) / 100).toFixed(2)}</td>
+                        <td>
+                          <button 
+                            className="billing-main-delete-btn"
+                            onClick={() => deleteItem(idx)}
+                            title="Delete item"
+                          >
+                            <i className="bi bi-x-circle"></i>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div className="billing-main-right-sidebar">
+              {/* Enhanced Summary Section */}
+              <div className="billing-main-summary-section">
+                <h3><i className="bi bi-calculator"></i> Bill Summary</h3>
+                <div className="summary-divider"></div>
+                <div className="summary-row">
+                  <span className="summary-label">
+                    <i className="bi bi-box-seam"></i> Items Count
+                  </span>
+                  <span className="summary-value">{summary.itemCount}</span>
+                </div>
+                <div className="summary-row">
+                  <span className="summary-label">
+                    <i className="bi bi-currency-rupee"></i> Taxable Amount
+                  </span>
+                  <span className="summary-value">₹{summary.taxable.toFixed(2)}</span>
+                </div>
+                <div className="summary-row discount-row">
+                  <span className="summary-label">
+                    <i className="bi bi-tag"></i> Discount
+                  </span>
+                  <span className="summary-value discount">-₹{summary.discount.toFixed(2)}</span>
+                </div>
+                <div className="summary-row">
+                  <span className="summary-label">
+                    <i className="bi bi-percent"></i> CGST
+                  </span>
+                  <span className="summary-value">₹{summary.cgst.toFixed(2)}</span>
+                </div>
+                <div className="summary-row">
+                  <span className="summary-label">
+                    <i className="bi bi-percent"></i> SGST
+                  </span>
+                  <span className="summary-value">₹{summary.sgst.toFixed(2)}</span>
+                </div>
+                <div className="summary-divider"></div>
+                <div className="summary-row grand-total">
+                  <span className="summary-label">
+                    <i className="bi bi-cash-stack"></i> Grand Total
+                  </span>
+                  <span className="summary-value">₹{summary.total.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Customer Details Section */}
+              <div className="billing-main-customer-details-section">
+                <h3><i className="bi bi-person-badge"></i> Customer Details</h3>
+                <div className="billing-main-form-group">
+                  <label htmlFor="customer-name">
+                    Customer Name <span className="required">*</span>
+                  </label>
+                  <input
+                    id="customer-name"
+                    type="text"
+                    className={`billing-main-form-input ${errors.customerName ? 'error' : ''}`}
+                    placeholder="Enter customer name"
+                    value={customerName}
+                    onChange={(e) => {
+                      setCustomerName(e.target.value);
+                      setErrors({...errors, customerName: false});
+                    }}
+                  />
+                  {errors.customerName && (
+                    <span className="error-message">
+                      <i className="bi bi-exclamation-circle"></i> Customer name is required
+                    </span>
+                  )}
+                </div>
+                <div className="billing-main-form-group">
+                  <label htmlFor="mobile-number">
+                    Mobile Number <span className="required">*</span>
+                  </label>
+                  <input
+                    id="mobile-number"
+                    type="tel"
+                    maxLength="10"
+                    className={`billing-main-form-input ${errors.mobileNumber ? 'error' : ''}`}
+                    placeholder="Enter 10-digit mobile number"
+                    value={mobileNumber}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '');
+                      setMobileNumber(value);
+                      setErrors({...errors, mobileNumber: false});
+                    }}
+                  />
+                  {errors.mobileNumber && (
+                    <span className="error-message">
+                      <i className="bi bi-exclamation-circle"></i> Valid 10-digit mobile number is required
+                    </span>
+                  )}
+                </div>
+                <div className="billing-main-form-group">
+                  <label htmlFor="address">
+                    Address <span className="required">*</span>
+                  </label>
+                  <textarea
+                    id="address"
+                    className={`billing-main-form-input ${errors.address ? 'error' : ''}`}
+                    placeholder="Enter customer address"
+                    rows="3"
+                    value={address}
+                    onChange={(e) => {
+                      setAddress(e.target.value);
+                      setErrors({...errors, address: false});
+                    }}
+                  />
+                  {errors.address && (
+                    <span className="error-message">
+                      <i className="bi bi-exclamation-circle"></i> Address is required
+                    </span>
+                  )}
+                </div>
+                <div className="billing-main-form-group">
+                  <label htmlFor="payment-mode">
+                    Payment Mode <span className="required">*</span>
+                  </label>
+                  <select
+                    id="payment-mode"
+                    className="billing-main-form-input"
+                    value={paymentMode}
+                    onChange={(e) => setPaymentMode(e.target.value)}
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="credit">Credit Card</option>
+                    <option value="debit">Debit Card</option>
+                    <option value="upi">UPI</option>
+                    <option value="cheque">Cheque</option>
+                  </select>
+                </div>
+                <button 
+                  className="billing-main-generate-bill-btn" 
+                  onClick={handleGenerateBill}
+                  disabled={cart.length === 0}
                 >
-                  <i className="bi bi-x-circle"></i>
+                  <i className="bi bi-receipt"></i> Generate Bill
                 </button>
-              )}
-              {/* Suggestions Dropdown */}
-              {suggestions.length > 0 && (
-                <ul className="billing-main-suggestions-list">
-                  {suggestions.map((item, idx) => (
-                    <li
-                      key={idx}
-                      className="billing-main-suggestion-item"
-                      onClick={() => handleSelectSuggestion(item)}
-                    >
-                      <span className="billing-main-suggestion-name">{item.name}</span>
-                      <span className="billing-main-suggestion-price">₹{item.price}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <button type="submit" className="billing-main-add-btn">
-              Add Item
-            </button>
-          </div>
-        </div>
-      </form>
-
-      <div className="billing-main-body">
-        <div className="billing-main-cart-section">
-          <h3>Cart</h3>
-          <table className="billing-main-cart-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Item</th>
-                <th>HSN</th>
-                <th>Qty</th>
-                <th>Price</th>
-                <th>Taxable</th>    
-                <th>GST%</th>
-                <th>CGST</th>
-                <th>SGST</th>
-                <th>Discount%</th>
-                <th>Total</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cart.map((item, idx) => (
-                <tr key={idx}>
-                  <td>{idx + 1}</td>
-                  <td>{item.name}</td>
-                  <td>{item.hsn}</td>
-                  <td>
-                    <input
-                      type="number"
-                      className="billing-main-qty-input"
-                      value={item.quantity}
-                      min="1"
-                      onChange={(e) =>
-                        updateQuantity(idx, parseInt(e.target.value) || 1)
-                      }
-                    />
-                  </td>
-                  <td>₹{item.price}</td>
-                  <td>₹{item.baseAmount.toFixed(2)}</td>
-                  <td>{item.gst || 0}%</td>
-                  <td>₹{item.cgst.toFixed(2)}</td>
-                  <td>₹{item.sgst.toFixed(2)}</td>
-                  <td>
-                    <input
-                      type="number"
-                      className="billing-main-qty-input"
-                      value={item.discount || 0}
-                      min="0"
-                      max="100"
-                      onChange={(e) =>
-                        updateDiscount(idx, parseFloat(e.target.value) || 0)
-                      }
-                    />
-                  </td>
-                  <td>₹{(item.lineTotal - (item.lineTotal * item.discount) / 100).toFixed(2)}</td>
-                  <td>
-                    <button 
-                      className="billing-main-delete-btn"
-                      onClick={() => deleteItem(idx)}
-                      title="Delete item"
-                    >
-                      <i className="bi bi-x-circle"></i>
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="billing-main-right-sidebar">
-          <div className="billing-main-customer-section">
-            <label className="mb-2 d-block">Select Store:</label>
-            <div className="billing-main-store-buttons">
-              <button
-                type="button"
-                className={`billing-main-store-btn ${customer === 'swasthik' ? 'billing-main-active' : ''}`}
-                onClick={() => setCustomer('swasthik')}
-              >
-                Swasthik Enterprise
-              </button>
-              <button
-                type="button"
-                className={`billing-main-store-btn ${customer === 'lakshmi' ? 'billing-main-active' : ''}`}
-                onClick={() => setCustomer('lakshmi')}
-              >
-                Lakshmi Bookstore
-              </button>
+              </div>
             </div>
           </div>
-
-          <div className="billing-main-summary-section">
-            <h3>Summary</h3>
-            <p>Items Count: {summary.itemCount}</p>
-            <p>Taxable Amount: ₹{summary.taxable.toFixed(2)}</p>
-            <p>Discount: -₹{summary.discount.toFixed(2)}</p>
-            <p>CGST: ₹{summary.cgst.toFixed(2)}</p>
-            <p>SGST: ₹{summary.sgst.toFixed(2)}</p>
-            <h2>Grand Total: ₹{summary.total.toFixed(2)}</h2>
-          </div>
-
-          <div className="billing-main-customer-details-section">
-            <h3>Customer Details</h3>
-            <div className="billing-main-form-group">
-              <label htmlFor="customer-name">Customer Name:</label>
-              <input
-                id="customer-name"
-                type="text"
-                className="billing-main-form-input"
-                placeholder="Enter customer name"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-              />
-            </div>
-            <div className="billing-main-form-group">
-              <label htmlFor="mobile-number">Mobile Number:</label>
-              <input
-                id="mobile-number"
-                type="tel"
-                className="billing-main-form-input"
-                placeholder="Enter mobile number"
-                value={mobileNumber}
-                onChange={(e) => setMobileNumber(e.target.value)}
-              />
-            </div>
-            <div className="billing-main-form-group">
-              <label htmlFor="payment-mode">Payment Mode:</label>
-              <select
-                id="payment-mode"
-                className="billing-main-form-input"
-                value={paymentMode}
-                onChange={(e) => setPaymentMode(e.target.value)}
-              >
-                <option value="cash">Cash</option>
-                <option value="credit">Credit</option>
-                <option value="debit">Debit Card</option>
-                <option value="upi">UPI</option>
-                <option value="cheque">Cheque</option>
-              </select>
-            </div>
-            <button className="billing-main-generate-bill-btn" onClick={handleGenerateBill}>
-              Generate Bill
-            </button>
-          </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 };
