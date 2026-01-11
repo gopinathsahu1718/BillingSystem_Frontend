@@ -8,7 +8,10 @@ const StoreManagement = () => {
   const BASE_URL = 'http://13.232.200.172/api/store';
   const STATIC_BASE = 'http://13.232.200.172';
   const { token } = useAuth();
-
+const PREDEFINED_CATEGORIES = [
+  { label: "Laxmi Bookstore", value: "laxmi_bookstore", displayName: "Laxmi Bookstore" },
+  { label: "Swasthik Enterprises", value: "swasthik_enterprises", displayName: "Swasthik Enterprises" }
+];
   const [activeTab, setActiveTab] = useState("categories");
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
@@ -49,7 +52,13 @@ const StoreManagement = () => {
   const [editingAttributeIndex, setEditingAttributeIndex] = useState(null);
 
   // Form states
-  const initialCategoryForm = { name: "", description: "", thumbnailFile: null, thumbnailPreview: null };
+  const initialCategoryForm = { 
+  name: "", 
+  description: "", 
+  thumbnailFile: null, 
+  thumbnailPreview: null,
+  selectedPredefinedCategory: null 
+};
   const [categoryForm, setCategoryForm] = useState(initialCategoryForm);
 
   const initialSubcategoryForm = {
@@ -77,6 +86,39 @@ const StoreManagement = () => {
     thumbnailPreview: null,
   };
   const [productForm, setProductForm] = useState(initialProductForm);
+  // Check if all predefined categories exist
+const canAddCategory = () => {
+  const existingCategoryNames = categories.map(cat => cat.name.toLowerCase());
+  const allPredefinedExist = PREDEFINED_CATEGORIES.every(
+    predef => existingCategoryNames.includes(predef.value.toLowerCase())
+  );
+  return !allPredefinedExist;
+};
+
+// Get available predefined categories
+const getAvailablePredefinedCategories = () => {
+  const existingCategoryNames = categories.map(cat => cat.name.toLowerCase());
+  return PREDEFINED_CATEGORIES.filter(
+    predef => !existingCategoryNames.includes(predef.value.toLowerCase())
+  );
+};
+
+// Get stock display text
+const getStockDisplay = (product) => {
+  if (product.attributes && product.attributes.length > 0) {
+    return "Varies by variant";
+  }
+  return product.stock || 0;
+};
+
+// Handle predefined category selection
+const handlePredefinedCategoryChange = (selectedOption) => {
+  setCategoryForm({ 
+    ...categoryForm, 
+    selectedPredefinedCategory: selectedOption,
+    name: selectedOption ? selectedOption.value : ""
+  });
+};
 
   const fetchSubcategoriesAndProducts = useCallback(async (currentCategories) => {
     if (!token || !token.trim()) {
@@ -442,10 +484,14 @@ const StoreManagement = () => {
       showToast("error", "Unauthorized", "Please log in to add a category.");
       return;
     }
-    if (!categoryForm.name.trim()) {
-      showToast("error", "Error", "Category name is required.");
-      return;
-    }
+    if (!categoryForm.name.trim() && !categoryForm.selectedPredefinedCategory) {
+  showToast("error", "Error", "Category selection is required.");
+  return;
+}
+
+const categoryName = categoryForm.selectedPredefinedCategory 
+  ? categoryForm.selectedPredefinedCategory.value 
+  : categoryForm.name.trim();
     if (isDuplicateCategory(categoryForm.name, editCategory)) {
       showToast("error", "Error", "Duplicate category name.");
       return;
@@ -454,7 +500,7 @@ const StoreManagement = () => {
     setIsSubmittingCategory(true);
     try {
       const formData = new FormData();
-      formData.append('name', categoryForm.name.trim());
+      formData.append('name', categoryName);
       if (categoryForm.description) {
         formData.append('description', categoryForm.description.trim());
       }
@@ -528,7 +574,9 @@ const StoreManagement = () => {
   const handleEditCategory = async (category) => {
     setShowCategoryForm(true);
     setEditCategory(category);
-
+const matchingPredefined = PREDEFINED_CATEGORIES.find(
+  predef => predef.value.toLowerCase() === category.name.toLowerCase()
+);
     let originalFilename = "Current thumbnail";
     if (category.thumbnail) {
       const urlParts = category.thumbnail.split('/');
@@ -538,7 +586,8 @@ const StoreManagement = () => {
       name: category.name || "",
       description: category.description || "",
       thumbnailFile: category.thumbnail ? { name: originalFilename } : null,
-      thumbnailPreview: category.thumbnail || null
+      thumbnailPreview: category.thumbnail || null,
+      selectedPredefinedCategory: matchingPredefined || null
     });
   };
 
@@ -1183,15 +1232,20 @@ const StoreManagement = () => {
             className="search-input"
           />
           <button
-            className="btn-add"
-            onClick={() => {
-              setEditCategory(null);
-              setCategoryForm(initialCategoryForm);
-              setShowCategoryForm(true);
-            }}
-          >
-            + Add Category
-          </button>
+  className="btn-add"
+  onClick={() => {
+    setEditCategory(null);
+    setCategoryForm(initialCategoryForm);
+    setShowCategoryForm(true);
+  }}
+  disabled={!canAddCategory()}
+  style={{ 
+    opacity: canAddCategory() ? 1 : 0.6,
+    cursor: canAddCategory() ? 'pointer' : 'not-allowed'
+  }}
+>
+  + Add Category
+</button>
         </div>
       </div>
 
@@ -1217,23 +1271,38 @@ const StoreManagement = () => {
                   <i className="bi bi-info-circle"></i>
                   Category Information
                 </div>
-                <div className="form-group">
-                  <label>
-                    <i className="bi bi-tag"></i>
-                    Category Name <span className="mandatory">*</span>
-                  </label>
-                  <div className="input-wrapper">
-                    <input
-                      name="name"
-                      placeholder="e.g., Stationery, Books, Office Supplies"
-                      value={categoryForm.name}
-                      onChange={handleCategoryChange}
-                      required
-                      maxLength={100}
-                    />
-                    <span className="char-count">{categoryForm.name.length}/100</span>
-                  </div>
-                </div>
+                {!editCategory ? (
+  <div className="form-group">
+    <label>
+      <i className="bi bi-tag"></i>
+      Select Category <span className="mandatory">*</span>
+    </label>
+    <Select
+      className="filter-select"
+      options={getAvailablePredefinedCategories()}
+      value={categoryForm.selectedPredefinedCategory}
+      onChange={handlePredefinedCategoryChange}
+      placeholder="Choose a category"
+      isClearable
+      styles={selectStyles}
+    />
+  </div>
+) : (
+  <div className="form-group">
+    <label>
+      <i className="bi bi-tag"></i>
+      Category Name <span className="mandatory">*</span>
+    </label>
+    <div className="input-wrapper">
+      <input
+        name="name"
+        value={categoryForm.name}
+        disabled
+        style={{ background: '#f3f4f6', cursor: 'not-allowed' }}
+      />
+    </div>
+  </div>
+)}
 
                 <div className="form-group">
                   <label>
@@ -2224,7 +2293,9 @@ const StoreManagement = () => {
                   <td data-label="Price">
                     ₹{p.price} {p.actualPrice && <span className="strike">₹{p.actualPrice}</span>}
                   </td>
-                  <td data-label="Stock">{p.stock}</td>
+                  <td data-label="Stock">
+  {getStockDisplay(p)}
+</td>
                   <td data-label="Created Date">{p.date}</td>
                   <td data-label="Actions">
                     <button className="btn-edit" onClick={() => handleEditProduct(p)}>

@@ -185,6 +185,21 @@ const ProductSelection = () => {
     return category?.id;
   };
 
+  // Get product counts for both categories
+  const getLaxmiBookstoreCount = () => {
+    const laxmiCategory = categories.find(cat => 
+      cat.name.toLowerCase().replace(/\s+/g, '_') === 'laxmi_bookstore'
+    );
+    return products.filter(p => p.categoryId === laxmiCategory?.id && p.isActive).length;
+  };
+
+  const getSwasthikEnterprisesCount = () => {
+    const swasthikCategory = categories.find(cat => 
+      cat.name.toLowerCase().replace(/\s+/g, '_') === 'swasthik_enterprises'
+    );
+    return products.filter(p => p.categoryId === swasthikCategory?.id && p.isActive).length;
+  };
+
   // Filter products by active category
   const filteredProducts = products.filter((p) => {
     const currentCategoryId = getCurrentCategoryId();
@@ -259,8 +274,10 @@ const ProductSelection = () => {
     const [localQuantity, setLocalQuantity] = useState(1);
     const [selectedVariant, setSelectedVariant] = useState(null);
 
+    const hasVariants = product.attributes && product.attributes.length > 0;
+
     // Check if any variant is in cart
-    const hasAnyVariantInCart = product.attributes && product.attributes.length > 0 
+    const hasAnyVariantInCart = hasVariants 
       ? product.attributes.some(attr => isInCart(product.id, attr.id))
       : false;
 
@@ -271,7 +288,7 @@ const ProductSelection = () => {
       : getAvailableStock(product.stock, product.id);
 
     const handleQuickAdd = () => {
-      if (product.attributes && product.attributes.length > 0) {
+      if (hasVariants) {
         setSelectedProductForCart(product);
         setShowAttributeModal(true);
         setSelectedAttribute(null);
@@ -355,17 +372,25 @@ const ProductSelection = () => {
           )}
         </td>
         <td data-label="Stock">
-          <div className={`stock-badge ${availableStock <= 0 ? 'out-of-stock' : availableStock <= 10 ? 'low-stock' : 'in-stock'}`}>
-            <i className="bi bi-boxes"></i> {availableStock} {product.unit}
-          </div>
-          {(productInCart || variantInCart) && (
-            <div className="cart-stock-info">
-              <i className="bi bi-info-circle"></i> {selectedVariant ? getCartQuantity(product.id, selectedVariant.id) : getCartQuantity(product.id)} in cart
+          {hasVariants ? (
+            <div className="stock-badge variant-stock">
+              <i className="bi bi-boxes"></i> Varies by variant
             </div>
+          ) : (
+            <>
+              <div className={`stock-badge ${availableStock <= 0 ? 'out-of-stock' : availableStock <= 10 ? 'low-stock' : 'in-stock'}`}>
+                <i className="bi bi-boxes"></i> {availableStock} {product.unit}
+              </div>
+              {productInCart && (
+                <div className="cart-stock-info">
+                  <i className="bi bi-info-circle"></i> {getCartQuantity(product.id)} in cart
+                </div>
+              )}
+            </>
           )}
         </td>
         <td data-label="Variants">
-          {product.attributes && product.attributes.length > 0 ? (
+          {hasVariants ? (
             <div className="variants-cell">
               <button 
                 className="btn-view-variants"
@@ -468,9 +493,9 @@ const ProductSelection = () => {
             <button
               className={`btn-add-to-cart-table ${productInCart ? 'btn-in-cart' : ''}`}
               onClick={handleQuickAdd}
-              disabled={availableStock <= 0}
+              disabled={!hasVariants && availableStock <= 0}
             >
-              {availableStock <= 0 ? (
+              {!hasVariants && availableStock <= 0 ? (
                 <>
                   <i className="bi bi-x-circle"></i> Out of Stock
                 </>
@@ -505,8 +530,13 @@ const ProductSelection = () => {
           </div>
           <div className="header-stats">
             <div className="stat-item">
-              <span className="stat-number">{filteredProducts.length}</span>
-              <span className="stat-label">Products</span>
+              <span className="stat-number">{getLaxmiBookstoreCount()}</span>
+              <span className="stat-labelR">Laxmi Bookstore</span>
+            </div>
+            <div className="stat-divider"></div>
+            <div className="stat-item">
+              <span className="stat-number">{getSwasthikEnterprisesCount()}</span>
+              <span className="stat-labelR">Swasthik Enterprises</span>
             </div>
           </div>
         </div>
