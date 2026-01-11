@@ -19,7 +19,7 @@ import ProductSelection from './pages/ProductSelection/ProductSelection';
 import BillingReport from './pages/BillingReport/BillingReport';
 import Cart from './pages/Cart/Cart';
 import BillPage from './pages/BillPage/BillPage';
-
+// import ImageToBase64Converter from './components/ImageToBase64Converter';
 
 
 // Password Reset Pages
@@ -50,6 +50,7 @@ function AppContent() {
       <Route path="/reset-otp" element={<ResetOtp />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/bill-page" element={<BillPage />} />
+      {/* <Route path="/image-converter" element={<ImageToBase64Converter />} /> */}
 
       {/* Protected Routes */}
       <Route
@@ -82,7 +83,7 @@ function AppContent() {
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/store-management" element={<StoreManagement />} />
                     <Route path="/products" element={<ProductSelection />} />
-                    
+
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/profile/change-password" element={<ChangePassword />} />
                     <Route path="/bill-page" element={<BillPage />} />

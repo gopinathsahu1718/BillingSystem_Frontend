@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "./Cart.css";
 import { useAuth } from "../../context/AuthContext";
+import { generateProfessionalBillPDF } from "../PDFGenerator";
 
 const Cart = () => {
   const BASE_URL = "http://13.232.200.172/api";
@@ -9,7 +10,6 @@ const Cart = () => {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [categoryType, setCategoryType] = useState(null);
-  const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [generatingBill, setGeneratingBill] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [quantityModal, setQuantityModal] = useState({
@@ -247,7 +247,6 @@ const Cart = () => {
           customerAddress: "",
           paymentMode: "cash",
         });
-        setShowCustomerForm(false);
         fetchCartItems();
       }
     } catch (error) {
@@ -266,71 +265,13 @@ const Cart = () => {
       });
       if (response.data && response.data.success) {
         const bill = response.data.data;
-        downloadBillPDF(bill);
+        await generateProfessionalBillPDF(bill, categoryType);
+        showToast("success", "Success", "PDF generated successfully!");
       }
     } catch (error) {
       console.error("Failed to generate PDF:", error);
+      showToast("error", "Error", "Failed to generate PDF");
     }
-  };
-
-  const downloadBillPDF = (bill) => {
-    const pdfWindow = window.open("", "_blank");
-    pdfWindow.document.write(generatePDFHTML(bill));
-    pdfWindow.document.close();
-    setTimeout(() => {
-      pdfWindow.print();
-    }, 500);
-  };
-
-  const generatePDFHTML = (bill) => {
-    const isLaxmi = categoryType === "laxmi_bookstore";
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Bill ${bill.billNumber}</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; }
-          .header { text-align: center; margin-bottom: 20px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-          th { background-color: #667eea; color: white; }
-          .total-section { margin-top: 20px; text-align: right; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>${isLaxmi ? "LAXMI BOOKSTORE" : "SWASTHIK ENTERPRISES"}</h1>
-          <h2>${bill.billNumber}</h2>
-        </div>
-        <p><strong>Customer:</strong> ${bill.customerName}</p>
-        <p><strong>Contact:</strong> ${bill.customerContact}</p>
-        <table>
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th>Qty</th>
-              <th>Price</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${bill.items.map(item => `
-              <tr>
-                <td>${item.productName}</td>
-                <td>${item.quantity}</td>
-                <td>₹${parseFloat(item.unitPrice || 0).toFixed(2)}</td>
-                <td>₹${parseFloat(item.total || 0).toFixed(2)}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-        <div class="total-section">
-          <h2>Grand Total: ₹${parseFloat(bill.grandTotal || 0).toFixed(2)}</h2>
-        </div>
-      </body>
-      </html>
-    `;
   };
 
   const getCategoryDisplayName = () => {
@@ -525,7 +466,7 @@ const Cart = () => {
               </div>
             </div>
 
-            {/* Customer Form Card */}
+            {/* Right Side - Customer Form */}
             <div className="customer-card">
               <h4>
                 <i className="bi bi-person-fill me-2"></i>

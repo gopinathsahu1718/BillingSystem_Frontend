@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "./BillingReport.css";
 import { useAuth } from "../../context/AuthContext";
+import { generateProfessionalBillPDF } from "../PDFGenerator";
 
 const BillingReport = () => {
   const BASE_URL = "http://13.232.200.172/api";
@@ -106,235 +107,15 @@ const BillingReport = () => {
     }
   };
 
-  const handleDownloadBill = (bill) => {
-    const pdfWindow = window.open("", "_blank");
-    pdfWindow.document.write(generatePDFHTML(bill));
-    pdfWindow.document.close();
-    setTimeout(() => {
-      pdfWindow.print();
-    }, 500);
-  };
-
-  const generatePDFHTML = (bill) => {
-    const isLaxmi = getCategoryFromBill(bill) === "laxmi_bookstore";
-    const categoryName = isLaxmi ? "LAXMI BOOKSTORE" : "SWASTHIK ENTERPRISES";
-
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Bill ${bill.billNumber}</title>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { 
-            font-family: 'Arial', sans-serif; 
-            padding: 30px; 
-            line-height: 1.6;
-          }
-          .header {
-            text-align: center;
-            margin-bottom: 30px;
-            border-bottom: 3px solid #667eea;
-            padding-bottom: 20px;
-          }
-          .header h1 {
-            color: #667eea;
-            font-size: 2rem;
-            margin-bottom: 5px;
-          }
-          .header h2 {
-            color: #764ba2;
-            font-size: 1.5rem;
-            margin-bottom: 10px;
-          }
-          .header p {
-            color: #6b7280;
-            font-size: 0.9rem;
-          }
-          .bill-info {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 30px;
-          }
-          .info-section h3 {
-            color: #667eea;
-            font-size: 1.1rem;
-            margin-bottom: 10px;
-            border-bottom: 2px solid #e5e7eb;
-            padding-bottom: 5px;
-          }
-          .info-row {
-            display: flex;
-            padding: 5px 0;
-          }
-          .info-label {
-            font-weight: 600;
-            color: #374151;
-            min-width: 120px;
-          }
-          .info-value {
-            color: #6b7280;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 30px 0;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-          }
-          th {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 12px;
-            text-align: left;
-            font-weight: 600;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-          }
-          td {
-            border: 1px solid #e5e7eb;
-            padding: 10px 12px;
-            font-size: 0.9rem;
-          }
-          tr:nth-child(even) {
-            background: #f9fafb;
-          }
-          .total-section {
-            margin-top: 30px;
-            float: right;
-            width: 350px;
-          }
-          .total-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 15px;
-            border-bottom: 1px solid #e5e7eb;
-          }
-          .total-row.grand {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            font-size: 1.2rem;
-            font-weight: 700;
-            border-bottom: none;
-            border-radius: 8px;
-            margin-top: 10px;
-          }
-          .footer {
-            clear: both;
-            margin-top: 50px;
-            padding-top: 20px;
-            border-top: 2px solid #e5e7eb;
-            text-align: center;
-            color: #6b7280;
-            font-size: 0.85rem;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>${categoryName}</h1>
-          <h2>INVOICE</h2>
-          <p>Bill No: <strong>${bill.billNumber}</strong> | Date: ${new Date(bill.createdAt).toLocaleString('en-IN')}</p>
-        </div>
-        
-        <div class="bill-info">
-          <div class="info-section">
-            <h3>Customer Details</h3>
-            <div class="info-row">
-              <span class="info-label">Name:</span>
-              <span class="info-value">${bill.customerName}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Contact:</span>
-              <span class="info-value">${bill.customerContact}</span>
-            </div>
-            ${bill.customerAddress ? `
-            <div class="info-row">
-              <span class="info-label">Address:</span>
-              <span class="info-value">${bill.customerAddress}</span>
-            </div>
-            ` : ''}
-          </div>
-          
-          <div class="info-section">
-            <h3>Payment Details</h3>
-            <div class="info-row">
-              <span class="info-label">Payment Mode:</span>
-              <span class="info-value">${bill.paymentMode.toUpperCase()}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Bill Status:</span>
-              <span class="info-value">${bill.isActive ? 'ACTIVE' : 'CANCELLED'}</span>
-            </div>
-          </div>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th>S.No</th>
-              <th>Item</th>
-              <th>HSN</th>
-              <th>Qty</th>
-              <th>Price</th>
-              ${!isLaxmi ? '<th>GST %</th><th>CGST</th><th>SGST</th>' : ''}
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${bill.items.map((item, index) => `
-              <tr>
-                <td>${index + 1}</td>
-                <td>
-                  <strong>${item.productName}</strong>
-                  ${item.attributeValue ? `<br><small style="color: #6b7280;">${item.attributeName}: ${item.attributeValue}</small>` : ''}
-                </td>
-                <td>${item.productSKU || 'N/A'}</td>
-                <td>${item.quantity} ${item.unit}</td>
-                <td>₹${parseFloat(item.unitPrice).toFixed(2)}</td>
-                ${!isLaxmi ? `
-                  <td>${parseFloat(item.gstRate).toFixed(2)}%</td>
-                  <td>₹${parseFloat(item.cgst).toFixed(2)}</td>
-                  <td>₹${parseFloat(item.sgst).toFixed(2)}</td>
-                ` : ''}
-                <td><strong>₹${parseFloat(item.total).toFixed(2)}</strong></td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-
-        <div class="total-section">
-          <div class="total-row">
-            <span>Subtotal:</span>
-            <span>₹${parseFloat(bill.subtotal).toFixed(2)}</span>
-          </div>
-          ${!isLaxmi ? `
-            <div class="total-row">
-              <span>CGST:</span>
-              <span>₹${parseFloat(bill.cgst).toFixed(2)}</span>
-            </div>
-            <div class="total-row">
-              <span>SGST:</span>
-              <span>₹${parseFloat(bill.sgst).toFixed(2)}</span>
-            </div>
-            <div class="total-row">
-              <span>Total GST:</span>
-              <span>₹${parseFloat(bill.totalGST).toFixed(2)}</span>
-            </div>
-          ` : ''}
-          <div class="total-row grand">
-            <span>Grand Total:</span>
-            <span>₹${parseFloat(bill.grandTotal).toFixed(2)}</span>
-          </div>
-        </div>
-
-        <div class="footer">
-          <p>Thank you for your business!</p>
-          <p>This is a computer-generated invoice and does not require a signature.</p>
-        </div>
-      </body>
-      </html>
-    `;
+  const handleDownloadBill = async (bill) => {
+    try {
+      const category = getCategoryFromBill(bill);
+      await generateProfessionalBillPDF(bill, category);
+      showToast("success", "Success", "PDF downloaded successfully!");
+    } catch (error) {
+      console.error("Failed to download PDF:", error);
+      showToast("error", "Error", "Failed to download PDF");
+    }
   };
 
   const handleResetFilters = () => {
@@ -403,7 +184,7 @@ const BillingReport = () => {
           <i className="bi bi-search search-icon"></i>
           <input
             type="text"
-            placeholder="Search by Bill #, Customer Name or Phone...."
+            placeholder="Search by Bill #, Customer Name or Phone..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="search-input"
@@ -435,7 +216,6 @@ const BillingReport = () => {
         </div>
       ) : (
         <>
-          {/* TABLE FORMAT */}
           <div className="bills-table-container">
             <table className="bills-table">
               <thead>
@@ -543,15 +323,86 @@ const BillingReport = () => {
 
       {showBillModal && viewingBill && (
         <div className="modal-overlay" onClick={() => setShowBillModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content-bill" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Bill Details</h3>
+              <h3>Bill Preview - {viewingBill.billNumber}</h3>
               <button className="modal-close" onClick={() => setShowBillModal(false)}>
                 ×
               </button>
             </div>
-            <div className="modal-body">
-              <div dangerouslySetInnerHTML={{ __html: generatePDFHTML(viewingBill) }} />
+            <div className="modal-body-bill">
+              <div className="bill-preview-container">
+                <div className="preview-section">
+                  <h4>Customer Information</h4>
+                  <p><strong>Name:</strong> {viewingBill.customerName}</p>
+                  <p><strong>Contact:</strong> {viewingBill.customerContact}</p>
+                  {viewingBill.customerAddress && (
+                    <p><strong>Address:</strong> {viewingBill.customerAddress}</p>
+                  )}
+                  <p><strong>Payment Mode:</strong> {viewingBill.paymentMode.toUpperCase()}</p>
+                </div>
+
+                <div className="preview-section">
+                  <h4>Bill Items</h4>
+                  <table className="preview-items-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Item</th>
+                        <th>Qty</th>
+                        <th>Price</th>
+                        <th>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {viewingBill.items.map((item, index) => (
+                        <tr key={index}>
+                          <td>{index + 1}</td>
+                          <td>
+                            {item.productName}
+                            {item.attributeValue && (
+                              <span className="item-variant"> ({item.attributeValue})</span>
+                            )}
+                          </td>
+                          <td>{item.quantity}</td>
+                          <td>₹{parseFloat(item.unitPrice).toFixed(2)}</td>
+                          <td>₹{parseFloat(item.total).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="preview-section">
+                  <h4>Bill Summary</h4>
+                  <div className="summary-grid">
+                    <div className="summary-item">
+                      <span>Subtotal:</span>
+                      <span>₹{parseFloat(viewingBill.subtotal).toFixed(2)}</span>
+                    </div>
+                    {parseFloat(viewingBill.totalGST) > 0 && (
+                      <>
+                        <div className="summary-item">
+                          <span>CGST:</span>
+                          <span>₹{parseFloat(viewingBill.cgst).toFixed(2)}</span>
+                        </div>
+                        <div className="summary-item">
+                          <span>SGST:</span>
+                          <span>₹{parseFloat(viewingBill.sgst).toFixed(2)}</span>
+                        </div>
+                        <div className="summary-item">
+                          <span>Total GST:</span>
+                          <span>₹{parseFloat(viewingBill.totalGST).toFixed(2)}</span>
+                        </div>
+                      </>
+                    )}
+                    <div className="summary-item grand-total-item">
+                      <span>Grand Total:</span>
+                      <span>₹{parseFloat(viewingBill.grandTotal).toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
             <div className="modal-footer">
               <button className="btn-modal-download" onClick={() => handleDownloadBill(viewingBill)}>

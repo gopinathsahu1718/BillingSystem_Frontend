@@ -1,5 +1,6 @@
 /* Billing Reports Page - Table Format */
 .billing-container {
+  padding: 2rem;
   max-width: 1600px;
   margin: 0 auto;
   min-height: 100vh;
@@ -675,6 +676,9 @@
 
 /* Responsive Design */
 @media screen and (max-width: 768px) {
+  .billing-container {
+    padding: 1rem;
+  }
 
   .page-header {
     padding: 1rem 1.5rem;
@@ -786,4 +790,127 @@
     right: 1rem;
     max-width: none;
   }
+}
+
+/* Modal Content for Bill Preview */
+.modal-content-bill {
+  background: white;
+  border-radius: 20px;
+  max-width: 900px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-body-bill {
+  padding: 2rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.bill-preview-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.preview-section {
+  padding: 1.5rem;
+  background: #f9fafb;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.preview-section h4 {
+  color: #667eea;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0 0 1rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #667eea;
+}
+
+.preview-section p {
+  margin: 0.5rem 0;
+  color: #374151;
+  font-size: 0.95rem;
+}
+
+.preview-section p strong {
+  color: #111827;
+  font-weight: 600;
+  margin-right: 0.5rem;
+}
+
+.preview-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5rem;
+}
+
+.preview-items-table thead {
+  background: #667eea;
+}
+
+.preview-items-table thead th {
+  padding: 0.75rem;
+  text-align: left;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: white;
+  text-transform: uppercase;
+}
+
+.preview-items-table tbody td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.preview-items-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.item-variant {
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.summary-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 0.95rem;
+}
+
+.summary-item span:first-child {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.summary-item span:last-child {
+  color: #111827;
+  font-weight: 600;
+}
+
+.summary-item.grand-total-item {
+  border-bottom: none;
+  border-top: 2px solid #667eea;
+  padding-top: 1rem;
+  margin-top: 0.5rem;
+  font-size: 1.25rem;
+}
+
+.summary-item.grand-total-item span {
+  color: #667eea;
+  font-weight: 700;
 }
