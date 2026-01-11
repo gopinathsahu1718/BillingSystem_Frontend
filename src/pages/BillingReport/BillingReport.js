@@ -1,637 +1,591 @@
 import React, { useState, useEffect } from "react";
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
-import './BillingReport.css';
-import { FaSearch, FaEye, FaDownload, FaTrash } from "react-icons/fa";
+import axios from "axios";
+import "./BillingReport.css";
 import { useAuth } from "../../context/AuthContext";
 
-const BASE_URL = 'http://13.232.200.172/api';
-
 const BillingReport = () => {
+  const BASE_URL = "http://13.232.200.172/api";
   const { token } = useAuth();
-  const navigate = useNavigate();
+
+  const [activeTab, setActiveTab] = useState("laxmi_bookstore");
   const [bills, setBills] = useState([]);
+  const [filteredBills, setFilteredBills] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({
-    search: "",
-    paymentMode: "",
-    isActive: "",
-  });
-
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
-  const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, billId: null });
-  const [successMessage, setSuccessMessage] = useState({ show: false, message: '' });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [paymentModeFilter, setPaymentModeFilter] = useState("all");
+  const [viewingBill, setViewingBill] = useState(null);
+  const [showBillModal, setShowBillModal] = useState(false);
+  const [toasts, setToasts] = useState([]);
 
-  // Fetch bills from API
+  const BILLS_PER_PAGE = 8;
+
+  useEffect(() => {
+    fetchBills();
+  }, []);
+
+  useEffect(() => {
+    filterBills();
+  }, [bills, activeTab, searchQuery, paymentModeFilter]);
+
   const fetchBills = async () => {
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
       const response = await axios.get(`${BASE_URL}/bills`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (response.data?.success) {
-        const billsData = response.data.data || [];
-        
-        // Transform API data to match component structure
-        const transformedBills = billsData.map(bill => {
-          // Prefer API's grandTotal/total fields, fallback to derived sums
-          let calculatedTotal = parseFloat(bill.grandTotal ?? bill.total ?? 0);
-          
-          if (calculatedTotal === 0 && bill.billItems && bill.billItems.length > 0) {
-            calculatedTotal = bill.billItems.reduce((sum, item) => {
-              const itemTotal = parseFloat(item.price || 0) * parseInt(item.quantity || 0);
-              return sum + itemTotal;
-            }, 0);
-          }
-
-          if (calculatedTotal === 0) {
-            const subtotal = parseFloat(bill.subtotal || 0);
-            const cgst = parseFloat(bill.cgst || 0);
-            const sgst = parseFloat(bill.sgst || 0);
-            const discount = parseFloat(bill.discount || 0);
-            calculatedTotal = subtotal + cgst + sgst - discount;
-          }
-
-          return {
-            id: bill.id,
-            billNumber: bill.billNumber,
-            customerName: bill.customerName || 'Customer',
-            customerContact: bill.customerContact || '',
-            paymentMode: bill.paymentMethod?.toLowerCase() || 'cash',
-            grandTotal: calculatedTotal,
-            totalGST: parseFloat(bill.cgst || 0) + parseFloat(bill.sgst || 0),
-            subtotal: parseFloat(bill.subtotal || 0),
-            discount: parseFloat(bill.discount || 0),
-            cgst: parseFloat(bill.cgst || 0),
-            sgst: parseFloat(bill.sgst || 0),
-            isActive: bill.status !== 'cancelled',
-            createdAt: bill.createdAt || new Date().toISOString(),
-            items: bill.billItems || []
-          };
-        });
-
-        setBills(transformedBills);
+      if (response.data && response.data.success) {
+        setBills(response.data.data || []);
       }
     } catch (error) {
-      console.error('Failed to fetch bills:', error);
+      console.error("Failed to fetch bills:", error);
+      showToast("error", "Error", "Failed to load bills");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchBills();
-  }, [token]);
+  const filterBills = () => {
+    let filtered = bills;
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR'
-    }).format(amount);
-  };
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    filtered = filtered.filter((bill) => {
+      if (bill.items && bill.items.length > 0) {
+        const category = getCategoryFromBill(bill);
+        return category === activeTab;
+      }
+      return false;
     });
-  };
 
-  // Filter bills based on search and filter criteria
-  const filteredBills = bills.filter((bill) => {
-    const searchLower = filters.search.toLowerCase();
-    const matchesSearch = 
-      bill.billNumber.toLowerCase().includes(searchLower) ||
-      bill.customerName.toLowerCase().includes(searchLower) ||
-      bill.customerContact.includes(searchLower);
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (bill) =>
+          bill.billNumber.toLowerCase().includes(query) ||
+          bill.customerName.toLowerCase().includes(query) ||
+          bill.customerContact.includes(query)
+      );
+    }
 
-    const matchesPayment = !filters.paymentMode || bill.paymentMode === filters.paymentMode;
-    
-    const matchesStatus = !filters.isActive || 
-      (filters.isActive === 'active' ? bill.isActive : !bill.isActive);
+    if (paymentModeFilter !== "all") {
+      filtered = filtered.filter((bill) => bill.paymentMode === paymentModeFilter);
+    }
 
-    return matchesSearch && matchesPayment && matchesStatus;
-  });
-
-  const handleSearchChange = (e) => {
-    setFilters({ ...filters, search: e.target.value });
-  };
-
-  const handlePaymentModeChange = (e) => {
-    setFilters({ ...filters, paymentMode: e.target.value });
-  };
-
-  const handleStatusChange = (e) => {
-    setFilters({ ...filters, isActive: e.target.value });
-  };
-
-  const handleClearSearch = () => {
-    setFilters({ search: "", paymentMode: "", isActive: "" });
-  };
-
-  const handleResetFilters = () => {
-    setFilters({ search: "", paymentMode: "", isActive: "" });
+    setFilteredBills(filtered);
     setCurrentPage(1);
   };
 
-  // Calculate pagination
-  const totalPages = Math.ceil(filteredBills.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedBills = filteredBills.slice(startIndex, startIndex + itemsPerPage);
+  const getCategoryFromBill = (bill) => {
+    if (parseFloat(bill.totalGST) > 0) {
+      return "swasthik_enterprises";
+    }
+    return "laxmi_bookstore";
+  };
 
-  const handlePageChange = (pageNumber) => {
-    if (pageNumber >= 1 && pageNumber <= totalPages) {
-      setCurrentPage(pageNumber);
+  const showToast = (type, title, description) => {
+    const id = Date.now();
+    setToasts([{ id, type, title, description }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((toast) => toast.id !== id));
+    }, 3000);
+  };
+
+  const handleViewBill = async (billId) => {
+    try {
+      const response = await axios.get(`${BASE_URL}/bills/${billId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.data && response.data.success) {
+        setViewingBill(response.data.data);
+        setShowBillModal(true);
+      }
+    } catch (error) {
+      console.error("Failed to fetch bill details:", error);
+      showToast("error", "Error", "Failed to load bill details");
     }
   };
 
-  const handleDelete = (billId) => {
-    setDeleteConfirm({ isOpen: true, billId });
+  const handleDownloadBill = (bill) => {
+    const pdfWindow = window.open("", "_blank");
+    pdfWindow.document.write(generatePDFHTML(bill));
+    pdfWindow.document.close();
+    setTimeout(() => {
+      pdfWindow.print();
+    }, 500);
   };
 
-  const confirmDelete = async () => {
-    if (deleteConfirm.billId) {
-      try {
-        // Try the /disable endpoint first (based on the error message)
-        const response = await axios.put(
-          `${BASE_URL}/bills/${deleteConfirm.billId}/disable`,
-          {},
-          {
-            headers: { Authorization: `Bearer ${token}` }
+  const generatePDFHTML = (bill) => {
+    const isLaxmi = getCategoryFromBill(bill) === "laxmi_bookstore";
+    const categoryName = isLaxmi ? "LAXMI BOOKSTORE" : "SWASTHIK ENTERPRISES";
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Bill ${bill.billNumber}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { 
+            font-family: 'Arial', sans-serif; 
+            padding: 30px; 
+            line-height: 1.6;
           }
-        );
-
-        if (response.data?.success) {
-          // Remove the bill from local state or mark it as inactive
-          setBills((prev) => prev.filter(bill => bill.id !== deleteConfirm.billId));
-          setCurrentPage(1);
-          setSuccessMessage({ show: true, message: 'Bill deleted successfully!' });
-          setTimeout(() => setSuccessMessage({ show: false, message: '' }), 3000);
-        }
-      } catch (error) {
-        console.error('Failed to delete bill:', error);
+          .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 20px;
+          }
+          .header h1 {
+            color: #667eea;
+            font-size: 2rem;
+            margin-bottom: 5px;
+          }
+          .header h2 {
+            color: #764ba2;
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+          }
+          .header p {
+            color: #6b7280;
+            font-size: 0.9rem;
+          }
+          .bill-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+          }
+          .info-section h3 {
+            color: #667eea;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 5px;
+          }
+          .info-row {
+            display: flex;
+            padding: 5px 0;
+          }
+          .info-label {
+            font-weight: 600;
+            color: #374151;
+            min-width: 120px;
+          }
+          .info-value {
+            color: #6b7280;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 30px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          }
+          th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+          }
+          td {
+            border: 1px solid #e5e7eb;
+            padding: 10px 12px;
+            font-size: 0.9rem;
+          }
+          tr:nth-child(even) {
+            background: #f9fafb;
+          }
+          .total-section {
+            margin-top: 30px;
+            float: right;
+            width: 350px;
+          }
+          .total-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 15px;
+            border-bottom: 1px solid #e5e7eb;
+          }
+          .total-row.grand {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 1.2rem;
+            font-weight: 700;
+            border-bottom: none;
+            border-radius: 8px;
+            margin-top: 10px;
+          }
+          .footer {
+            clear: both;
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 2px solid #e5e7eb;
+            text-align: center;
+            color: #6b7280;
+            font-size: 0.85rem;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${categoryName}</h1>
+          <h2>INVOICE</h2>
+          <p>Bill No: <strong>${bill.billNumber}</strong> | Date: ${new Date(bill.createdAt).toLocaleString('en-IN')}</p>
+        </div>
         
-        // Provide more specific error message
-        const errorMsg = error.response?.data?.message || 'Failed to delete bill. Please try again.';
-        setSuccessMessage({ show: true, message: errorMsg });
-        setTimeout(() => setSuccessMessage({ show: false, message: '' }), 3000);
-      } finally {
-        setDeleteConfirm({ isOpen: false, billId: null });
-      }
-    }
+        <div class="bill-info">
+          <div class="info-section">
+            <h3>Customer Details</h3>
+            <div class="info-row">
+              <span class="info-label">Name:</span>
+              <span class="info-value">${bill.customerName}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Contact:</span>
+              <span class="info-value">${bill.customerContact}</span>
+            </div>
+            ${bill.customerAddress ? `
+            <div class="info-row">
+              <span class="info-label">Address:</span>
+              <span class="info-value">${bill.customerAddress}</span>
+            </div>
+            ` : ''}
+          </div>
+          
+          <div class="info-section">
+            <h3>Payment Details</h3>
+            <div class="info-row">
+              <span class="info-label">Payment Mode:</span>
+              <span class="info-value">${bill.paymentMode.toUpperCase()}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Bill Status:</span>
+              <span class="info-value">${bill.isActive ? 'ACTIVE' : 'CANCELLED'}</span>
+            </div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>S.No</th>
+              <th>Item</th>
+              <th>HSN</th>
+              <th>Qty</th>
+              <th>Price</th>
+              ${!isLaxmi ? '<th>GST %</th><th>CGST</th><th>SGST</th>' : ''}
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${bill.items.map((item, index) => `
+              <tr>
+                <td>${index + 1}</td>
+                <td>
+                  <strong>${item.productName}</strong>
+                  ${item.attributeValue ? `<br><small style="color: #6b7280;">${item.attributeName}: ${item.attributeValue}</small>` : ''}
+                </td>
+                <td>${item.productSKU || 'N/A'}</td>
+                <td>${item.quantity} ${item.unit}</td>
+                <td>₹${parseFloat(item.unitPrice).toFixed(2)}</td>
+                ${!isLaxmi ? `
+                  <td>${parseFloat(item.gstRate).toFixed(2)}%</td>
+                  <td>₹${parseFloat(item.cgst).toFixed(2)}</td>
+                  <td>₹${parseFloat(item.sgst).toFixed(2)}</td>
+                ` : ''}
+                <td><strong>₹${parseFloat(item.total).toFixed(2)}</strong></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <div class="total-section">
+          <div class="total-row">
+            <span>Subtotal:</span>
+            <span>₹${parseFloat(bill.subtotal).toFixed(2)}</span>
+          </div>
+          ${!isLaxmi ? `
+            <div class="total-row">
+              <span>CGST:</span>
+              <span>₹${parseFloat(bill.cgst).toFixed(2)}</span>
+            </div>
+            <div class="total-row">
+              <span>SGST:</span>
+              <span>₹${parseFloat(bill.sgst).toFixed(2)}</span>
+            </div>
+            <div class="total-row">
+              <span>Total GST:</span>
+              <span>₹${parseFloat(bill.totalGST).toFixed(2)}</span>
+            </div>
+          ` : ''}
+          <div class="total-row grand">
+            <span>Grand Total:</span>
+            <span>₹${parseFloat(bill.grandTotal).toFixed(2)}</span>
+          </div>
+        </div>
+
+        <div class="footer">
+          <p>Thank you for your business!</p>
+          <p>This is a computer-generated invoice and does not require a signature.</p>
+        </div>
+      </body>
+      </html>
+    `;
   };
 
-  const cancelDelete = () => {
-    setDeleteConfirm({ isOpen: false, billId: null });
+  const handleResetFilters = () => {
+    setSearchQuery("");
+    setPaymentModeFilter("all");
+    setCurrentPage(1);
   };
 
-  const handleView = async (billId) => {
-    try {
-      const response = await axios.get(`${BASE_URL}/bills/${billId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+  const indexOfLastBill = currentPage * BILLS_PER_PAGE;
+  const indexOfFirstBill = indexOfLastBill - BILLS_PER_PAGE;
+  const currentBills = filteredBills.slice(indexOfFirstBill, indexOfLastBill);
+  const totalPages = Math.ceil(filteredBills.length / BILLS_PER_PAGE);
 
-      if (response.data?.success) {
-        const billDetail = response.data.data;
-        
-        // Transform bill items to match BillPage format
-        const transformedCart = billDetail.billItems?.map((item, index) => {
-          // Use the price from the bill item (which should already be the correct variant price)
-          const price = parseFloat(item.price || 0);
-          const quantity = parseInt(item.quantity || 1);
-          const gstRate = parseFloat(item.product?.gstRate || 0);
-          const discountPercent = parseFloat(item.discount || 0);
-          
-          // Calculate amounts
-          const lineTotal = price * quantity;
-          const baseAmount = (lineTotal * 100) / (100 + gstRate);
-          const gstAmount = lineTotal - baseAmount;
-          const cgst = gstAmount / 2;
-          const sgst = gstAmount / 2;
-          const discountAmount = (lineTotal * discountPercent) / 100;
-          const total = lineTotal - discountAmount;
-          
-          return {
-            id: index + 1,
-            name: item.product?.name || 'Product',
-            hsn: item.product?.sku || '',
-            qty: quantity,
-            rate: price,
-            discount: discountPercent,
-            taxable: baseAmount,
-            cgst: cgst,
-            sgst: sgst,
-            cgstRate: gstRate / 2,
-            sgstRate: gstRate / 2,
-            total: total,
-            attributeName: item.attribute 
-              ? `${item.attribute.attributeName}: ${item.attribute.attributeValue}` 
-              : null
-          };
-        }) || [];
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
-        // Calculate summary from transformed items
-        const summary = transformedCart.reduce(
-          (acc, item) => {
-            acc.itemCount += item.qty;
-            acc.taxable += item.taxable;
-            acc.discount += (item.rate * item.qty * item.discount) / 100;
-            acc.cgst += item.cgst;
-            acc.sgst += item.sgst;
-            acc.total += item.total;
-            return acc;
-          },
-          { itemCount: 0, taxable: 0, discount: 0, cgst: 0, sgst: 0, total: 0 }
-        );
-
-        // Create bill data matching BillPage format
-        const billData = {
-          billNo: billDetail.billNumber,
-          id: billDetail.id,
-          date: new Date(billDetail.createdAt).toLocaleDateString('en-IN'),
-          time: new Date(billDetail.createdAt).toLocaleTimeString('en-IN'),
-          customerName: billDetail.customerName || 'Customer',
-          mobile: billDetail.customerContact || '',
-          contactNo: billDetail.customerContact || '',
-          address: billDetail.address || '',
-          paymentMode: billDetail.paymentMethod || 'cash',
-          store: billDetail.store || 'lakshmi',
-          items: transformedCart, // BillPage expects 'items' array
-          cart: transformedCart,   // Keep both for compatibility
-          summary: summary,
-          grandTotal: summary.total
-        };
-
-        // Navigate to bill page
-        navigate('/bill-page', { state: { billData } });
-      }
-    } catch (error) {
-      console.error('Failed to fetch bill details:', error);
-      const errorMsg = error.response?.data?.message || 'Failed to load bill details';
-      setSuccessMessage({ show: true, message: errorMsg });
-      setTimeout(() => setSuccessMessage({ show: false, message: '' }), 3000);
-    }
-  };
-
-  const handleDownload = async (billId) => {
-    try {
-      setSuccessMessage({ show: true, message: 'Preparing bill for download...' });
-      
-      // Fetch the bill details
-      const response = await axios.get(`${BASE_URL}/bills/${billId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      if (response.data?.success) {
-        const billDetail = response.data.data;
-        
-        // Transform bill items to match BillPage format (same as handleView)
-        const transformedCart = billDetail.billItems?.map((item, index) => {
-          const price = parseFloat(item.price || 0);
-          const quantity = parseInt(item.quantity || 1);
-          const gstRate = parseFloat(item.product?.gstRate || 0);
-          const discountPercent = parseFloat(item.discount || 0);
-          
-          const lineTotal = price * quantity;
-          const baseAmount = (lineTotal * 100) / (100 + gstRate);
-          const gstAmount = lineTotal - baseAmount;
-          const cgst = gstAmount / 2;
-          const sgst = gstAmount / 2;
-          const discountAmount = (lineTotal * discountPercent) / 100;
-          const total = lineTotal - discountAmount;
-          
-          return {
-            id: index + 1,
-            name: item.product?.name || 'Product',
-            hsn: item.product?.sku || '',
-            qty: quantity,
-            rate: price,
-            discount: discountPercent,
-            taxable: baseAmount,
-            cgst: cgst,
-            sgst: sgst,
-            cgstRate: gstRate / 2,
-            sgstRate: gstRate / 2,
-            total: total,
-            attributeName: item.attribute 
-              ? `${item.attribute.attributeName}: ${item.attribute.attributeValue}` 
-              : null
-          };
-        }) || [];
-
-        // Calculate summary
-        const summary = transformedCart.reduce(
-          (acc, item) => {
-            acc.itemCount += item.qty;
-            acc.taxable += item.taxable;
-            acc.discount += (item.rate * item.qty * item.discount) / 100;
-            acc.cgst += item.cgst;
-            acc.sgst += item.sgst;
-            acc.total += item.total;
-            return acc;
-          },
-          { itemCount: 0, taxable: 0, discount: 0, cgst: 0, sgst: 0, total: 0 }
-        );
-
-        // Create bill data matching BillPage format
-        const billData = {
-          billNo: billDetail.billNumber,
-          id: billDetail.id,
-          date: new Date(billDetail.createdAt).toLocaleDateString('en-IN'),
-          time: new Date(billDetail.createdAt).toLocaleTimeString('en-IN'),
-          customerName: billDetail.customerName || 'Customer',
-          mobile: billDetail.customerContact || '',
-          contactNo: billDetail.customerContact || '',
-          address: billDetail.address || '',
-          paymentMode: billDetail.paymentMethod || 'cash',
-          store: billDetail.store || 'lakshmi',
-          items: transformedCart,
-          cart: transformedCart,
-          summary: summary,
-          grandTotal: summary.total,
-          downloadMode: true
-        };
-
-        // Navigate to BillPage with download flag
-        navigate('/bill-page', { 
-          state: { 
-            billData,
-            autoDownload: true
-          } 
-        });
-
-        setSuccessMessage({ show: true, message: 'Redirecting to bill page...' });
-        setTimeout(() => setSuccessMessage({ show: false, message: '' }), 2000);
-      }
-    } catch (error) {
-      console.error('Failed to download bill:', error);
-      const errorMsg = error.response?.data?.message || 'Failed to download bill. Please try again.';
-      setSuccessMessage({ show: true, message: errorMsg });
-      setTimeout(() => setSuccessMessage({ show: false, message: '' }), 3000);
-    }
-  };
+  if (loading) {
+    return (
+      <div className="billing-container">
+        <div className="loading-container">
+          <i className="bi bi-hourglass-split"></i>
+          <p>Loading billing reports...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="billing-report-container">
-      {/* Header Section with Breadcrumbs */}
-      <div className="billing-report-header">
-        <div className="breadcrumbs">
-          <span onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>Dashboard</span>
-          <i className="bi bi-chevron-right"></i>
-          <span className="active">Billing Reports</span>
-        </div>
-        <h2 className="billing-report-title">
-          <i className="bi bi-receipt me-2"></i> Billing Reports
-        </h2>
-      </div>
-
-      {/* Filters & Search Bar */}
-      <div className="billing-report-filters-section">
-        <div className="billing-report-filters-row">
-          {/* Search Input */}
-          <div className="billing-report-filter-group" style={{ flex: 3 }}>
-            <label className="billing-report-filter-label">Search Records</label>
-            <div className="billing-report-search-input-wrapper">
-              <FaSearch />
-              <input
-                type="text"
-                placeholder="Search by Bill #, Customer Name or Phone..."
-                value={filters.search}
-                onChange={handleSearchChange}
-              />
-              {filters.search && (
-                <button
-                  type="button"
-                  className="billing-report-clear-search-btn"
-                  onClick={handleClearSearch}
-                >
-                  <i className="bi bi-x-circle"></i>
-                </button>
-              )}
+    <div className="billing-container">
+      <div className="page-header">
+        <div className="header-content">
+          <div className="header-text">
+            <h2 className="page-title">
+              <i className="bi bi-receipt me-2"></i>
+              Billing Reports
+            </h2>
+            <div className="breadcrumbs">View and manage all billing records</div>
+          </div>
+          <div className="header-stats">
+            <div className="stat-item">
+              <span className="stat-number">{bills.length}</span>
+              <span className="stat-label">Total Bills</span>
             </div>
           </div>
-
-          {/* Payment Filter */}
-          <div className="billing-report-filter-group" style={{ flex: 0.8 }}>
-            <label className="billing-report-filter-label">Payment Mode</label>
-            <select value={filters.paymentMode} onChange={handlePaymentModeChange}>
-              <option value="">All Modes</option>
-              <option value="cash">Cash</option>
-              <option value="credit">Credit Card</option>
-              <option value="debit">Debit Card</option>
-              <option value="upi">UPI</option>
-              <option value="cheque">Cheque</option>
-            </select>
-          </div>
-          
-          {/* Reset Button */}
-          <button className="billing-report-reset-btn" onClick={handleResetFilters}>Reset Filter</button>
         </div>
       </div>
 
-      {/* Main Data Table */}
-      <div className="billing-report-table-wrapper">
-        <div className="billing-report-table-container">
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: '50px' }}>
-              <i className="bi bi-hourglass-split" style={{ fontSize: '48px' }}></i>
-              <p>Loading bills...</p>
-            </div>
-          ) : (
-            <table className="billing-report-billing-table">
+      <div className="billing-tabs">
+        <button
+          className={activeTab === "laxmi_bookstore" ? "active" : ""}
+          onClick={() => setActiveTab("laxmi_bookstore")}
+        >
+          <i className="bi bi-book me-2"></i>
+          Laxmi Bookstore
+        </button>
+        <button
+          className={activeTab === "swasthik_enterprises" ? "active" : ""}
+          onClick={() => setActiveTab("swasthik_enterprises")}
+        >
+          <i className="bi bi-shop me-2"></i>
+          Swasthik Enterprises
+        </button>
+      </div>
+
+      <div className="billing-controls">
+        <div className="search-box">
+          <i className="bi bi-search search-icon"></i>
+          <input
+            type="text"
+            placeholder="Search by Bill #, Customer Name or Phone...."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+        </div>
+        <select
+          className="payment-filter"
+          value={paymentModeFilter}
+          onChange={(e) => setPaymentModeFilter(e.target.value)}
+        >
+          <option value="all">All Modes</option>
+          <option value="cash">Cash</option>
+          <option value="card">Card</option>
+          <option value="upi">UPI</option>
+          <option value="netbanking">Net Banking</option>
+          <option value="other">Other</option>
+        </select>
+        <button className="btn-reset" onClick={handleResetFilters}>
+          <i className="bi bi-arrow-clockwise me-2"></i>
+          Reset Filters
+        </button>
+      </div>
+
+      {currentBills.length === 0 ? (
+        <div className="no-bills">
+          <i className="bi bi-inbox"></i>
+          <h3>No bills found</h3>
+          <p>There are no billing records for this category</p>
+        </div>
+      ) : (
+        <>
+          {/* TABLE FORMAT */}
+          <div className="bills-table-container">
+            <table className="bills-table">
               <thead>
                 <tr>
-                  <th>Bill Details</th>
-                  <th>Customer Info</th>
-                  <th>Payment</th>
-                  <th>Amount</th>
-                  <th style={{ textAlign: 'center', width: '200px' }}>Actions</th>
+                  <th>BILL DETAILS</th>
+                  <th>CUSTOMER INFO</th>
+                  <th>PAYMENT</th>
+                  <th>AMOUNT</th>
+                  <th>ACTIONS</th>
                 </tr>
               </thead>
               <tbody>
-                {paginatedBills.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="billing-report-empty-state">
-                      No bills have been generated yet.
+                {currentBills.map((bill) => (
+                  <tr key={bill.id}>
+                    <td data-label="Bill Details">
+                      <div className="bill-details-cell">
+                        <div className="bill-number-main">{bill.billNumber}</div>
+                        <div className="bill-date">
+                          {new Date(bill.createdAt).toLocaleDateString('en-IN', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric'
+                          })}
+                        </div>
+                        <div className="bill-time">
+                          {new Date(bill.createdAt).toLocaleTimeString('en-IN', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true
+                          })}
+                        </div>
+                      </div>
+                    </td>
+                    <td data-label="Customer Info">
+                      <div className="customer-cell">
+                        <div className="customer-name">{bill.customerName}</div>
+                        <div className="customer-phone">{bill.customerContact}</div>
+                      </div>
+                    </td>
+                    <td data-label="Payment">
+                      <span className={`payment-badge ${bill.paymentMode}`}>
+                        {bill.paymentMode.toUpperCase()}
+                      </span>
+                    </td>
+                    <td data-label="Amount">
+                      <div className="amount-cell">
+                        ₹{parseFloat(bill.grandTotal).toFixed(2)}
+                      </div>
+                    </td>
+                    <td data-label="Actions">
+                      <div className="action-buttons">
+                        <button
+                          className="btn-view-small"
+                          onClick={() => handleViewBill(bill.id)}
+                          title="View Bill"
+                        >
+                          <i className="bi bi-eye"></i> View
+                        </button>
+                        <button
+                          className="btn-download-small"
+                          onClick={() => handleDownloadBill(bill)}
+                          title="Download PDF"
+                        >
+                          <i className="bi bi-download"></i> Download
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                ) : (
-                  paginatedBills.map((bill) => (
-                    <tr key={bill.id}>
-                      {/* Bill Info */}
-                      <td>
-                        <div className="billing-report-bill-number">{bill.billNumber}</div>
-                        <div className="billing-report-bill-date">{formatDate(bill.createdAt)}</div>
-                      </td>
-
-                      {/* Customer Info */}
-                      <td>
-                        <div className="billing-report-customer-name">{bill.customerName}</div>
-                        <div className="billing-report-customer-contact">{bill.customerContact}</div>
-                      </td>
-
-                      {/* Payment Mode */}
-                      <td>
-                        <PaymentBadge mode={bill.paymentMode} />
-                      </td>
-
-                      {/* Amounts */}
-                      <td className="billing-report-amount-column">
-                        <div className="billing-report-amount-value">{formatCurrency(bill.grandTotal)}</div>
-                      </td>
-
-                      {/* Actions */}
-                      <td style={{ textAlign: 'center' }}>
-                        <div className="billing-report-action-buttons">
-                          <button 
-                            className="billing-report-action-btn billing-report-btn-view" 
-                            title="View Bill"
-                            onClick={() => handleView(bill.id)}
-                          >
-                            <FaEye size={14} />
-                            <span>View</span>
-                          </button>
-                          <button 
-                            className="billing-report-action-btn billing-report-btn-download" 
-                            title="Download Bill"
-                            onClick={() => handleDownload(bill.id)}
-                          >
-                            <FaDownload size={14} />
-                            <span>Download</span>
-                          </button>
-                          <button 
-                            className="billing-report-action-btn billing-report-btn-delete" 
-                            title="Delete Bill"
-                            onClick={() => handleDelete(bill.id)}
-                          >
-                            <FaTrash size={14} />
-                            <span>Delete</span>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
+                ))}
               </tbody>
             </table>
-          )}
-        </div>
+          </div>
 
-        {/* Footer / Pagination */}
-        {!loading && filteredBills.length > 0 && (
-          <div className="billing-report-pagination-wrapper">
-            <div className="billing-report-pagination-buttons">
-              <button 
-                onClick={() => handlePageChange(currentPage - 1)}
+          {totalPages > 1 && (
+            <div className="pagination">
+              <button
+                className="page-btn"
+                onClick={() => paginate(currentPage - 1)}
                 disabled={currentPage === 1}
               >
-                Previous
+                <i className="bi bi-chevron-left"></i>
               </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+
+              {[...Array(totalPages)].map((_, index) => (
                 <button
-                  key={page}
-                  onClick={() => handlePageChange(page)}
-                  className={currentPage === page ? 'billing-report-active' : ''}
+                  key={index + 1}
+                  className={`page-btn ${currentPage === index + 1 ? "active" : ""}`}
+                  onClick={() => paginate(index + 1)}
                 >
-                  {page}
+                  {index + 1}
                 </button>
               ))}
-              <button 
-                onClick={() => handlePageChange(currentPage + 1)}
+
+              <button
+                className="page-btn"
+                onClick={() => paginate(currentPage + 1)}
                 disabled={currentPage === totalPages}
               >
-                Next
+                <i className="bi bi-chevron-right"></i>
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {showBillModal && viewingBill && (
+        <div className="modal-overlay" onClick={() => setShowBillModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Bill Details</h3>
+              <button className="modal-close" onClick={() => setShowBillModal(false)}>
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <div dangerouslySetInnerHTML={{ __html: generatePDFHTML(viewingBill) }} />
+            </div>
+            <div className="modal-footer">
+              <button className="btn-modal-download" onClick={() => handleDownloadBill(viewingBill)}>
+                <i className="bi bi-download me-2"></i>
+                Download PDF
+              </button>
+              <button className="btn-modal-close" onClick={() => setShowBillModal(false)}>
+                Close
               </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Delete Confirmation Modal */}
-      {deleteConfirm.isOpen && (
-        <div className="billing-report-popup-overlay" onClick={cancelDelete}>
-          <div className="billing-report-popup-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="billing-report-popup-header">
-              <h3>Delete Bill</h3>
-              <button 
-                className="billing-report-popup-close-btn" 
-                onClick={cancelDelete}
+      <div className="toast-container">
+        {toasts.map((toast) => (
+          <div key={toast.id} className={`toast-notification ${toast.type}`}>
+            <div className="toast-content">
+              <span className="toast-icon"></span>
+              <div className="toast-body">
+                <div className="toast-title">{toast.title}</div>
+                <div className="toast-description">{toast.description}</div>
+              </div>
+              <button
+                className="toast-close"
+                onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
               >
                 ×
               </button>
             </div>
-            <div className="billing-report-popup-body">
-              <p>Are you sure you want to delete this bill? This action cannot be undone.</p>
-            </div>
-            <div className="billing-report-popup-footer">
-              <button 
-                className="billing-report-popup-btn-cancel" 
-                onClick={cancelDelete}
-              >
-                Cancel
-              </button>
-              <button 
-                className="billing-report-popup-btn-delete" 
-                onClick={confirmDelete}
-              >
-                Delete
-              </button>
-            </div>
           </div>
-        </div>
-      )}
-
-      {/* Success Message Toast */}
-      {successMessage.show && (
-        <div className="billing-report-success-toast">
-          <div className="billing-report-toast-content">
-            <i className="bi bi-check-circle-fill"></i>
-            <span>{successMessage.message}</span>
-          </div>
-        </div>
-      )}
+        ))}
+      </div>
     </div>
-  );
-};
-
-// --- Sub-components for Cleaner Code ---
-
-const PaymentBadge = ({ mode }) => {
-  const badgeClasses = {
-    cash: "billing-report-badge-cash",
-    credit: "billing-report-badge-card",
-    debit: "billing-report-badge-card",
-    upi: "billing-report-badge-upi",
-    cheque: "billing-report-badge-netbanking",
-    default: "billing-report-badge-cash"
-  };
-
-  const modeLabels = {
-    cash: "Cash",
-    credit: "Credit Card",
-    debit: "Debit Card",
-    upi: "UPI",
-    cheque: "Cheque"
-  };
-
-  const badgeClass = badgeClasses[mode] || badgeClasses.default;
-  const label = modeLabels[mode] || mode;
-
-  return (
-    <span className={`billing-report-payment-badge ${badgeClass}`}>
-      {label}
-    </span>
   );
 };
 
