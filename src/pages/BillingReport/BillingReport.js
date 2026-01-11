@@ -205,28 +205,19 @@ const BillingReport = () => {
   return (
     <div className="billing-report-container">
       {/* Header Section */}
-      <div className="page-header">
-        <h2 className="page-title">
+      <div className="billing-report-header">
+        <h2 className="billing-report-title">
           <i className="bi bi-receipt me-2"></i> Billing Reports
         </h2>
       </div>
 
-      {/* <div className="report-buttons">
-        <button className="btn-secondary">
-          <FaCalendarAlt /> Select Date
-        </button>
-        <button className="btn-primary">
-          <FaDownload /> Export Report
-        </button>
-      </div> */}
-
       {/* Filters & Search Bar */}
-      <div className="filters-section">
-        <div className="filters-row">
+      <div className="billing-report-filters-section">
+        <div className="billing-report-filters-row">
           {/* Search Input */}
-          <div className="filter-group" style={{ flex: 3 }}>
-            <label className="filter-label">Search Records</label>
-            <div className="search-input-wrapper">
+          <div className="billing-report-filter-group" style={{ flex: 3 }}>
+            <label className="billing-report-filter-label">Search Records</label>
+            <div className="billing-report-search-input-wrapper">
               <FaSearch />
               <input
                 type="text"
@@ -237,7 +228,7 @@ const BillingReport = () => {
               {filters.search && (
                 <button
                   type="button"
-                  className="clear-search-btn"
+                  className="billing-report-clear-search-btn"
                   onClick={handleClearSearch}
                 >
                   <i className="bi bi-x-circle"></i>
@@ -247,8 +238,8 @@ const BillingReport = () => {
           </div>
 
           {/* Payment Filter */}
-          <div className="filter-group" style={{ flex: 0.8 }}>
-            <label className="filter-label">Payment Mode</label>
+          <div className="billing-report-filter-group" style={{ flex: 0.8 }}>
+            <label className="billing-report-filter-label">Payment Mode</label>
             <select value={filters.paymentMode} onChange={handlePaymentModeChange}>
               <option value="">All Modes</option>
               <option value="cash">Cash</option>
@@ -257,26 +248,16 @@ const BillingReport = () => {
               <option value="netbanking">Net Banking</option>
             </select>
           </div>
-
-          {/* Status Filter */}
-          {/* <div className="filter-group" style={{ flex: 0.8 }}>
-            <label className="filter-label">Bill Status</label>
-            <select value={filters.isActive} onChange={handleStatusChange}>
-              <option value="">All Status</option>
-              <option value="active">Active</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div> */}
           
           {/* Reset Button */}
-          <button className="reset-btn" onClick={handleResetFilters}>Reset Filter</button>
+          <button className="billing-report-reset-btn" onClick={handleResetFilters}>Reset Filter</button>
         </div>
       </div>
 
       {/* Main Data Table */}
-      <div className="table-wrapper">
-        <div className="table-container">
-          <table className="billing-table">
+      <div className="billing-report-table-wrapper">
+        <div className="billing-report-table-container">
+          <table className="billing-report-billing-table">
             <thead>
               <tr>
                 <th>Bill Details</th>
@@ -291,14 +272,14 @@ const BillingReport = () => {
                 <tr key={bill.id}>
                   {/* Bill Info */}
                   <td>
-                    <div className="bill-number">{bill.billNumber}</div>
-                    <div className="bill-date">{formatDate(bill.createdAt)}</div>
+                    <div className="billing-report-bill-number">{bill.billNumber}</div>
+                    <div className="billing-report-bill-date">{formatDate(bill.createdAt)}</div>
                   </td>
 
                   {/* Customer Info */}
                   <td>
-                    <div className="customer-name">{bill.customerName}</div>
-                    <div className="customer-contact">{bill.customerContact}</div>
+                    <div className="billing-report-customer-name">{bill.customerName}</div>
+                    <div className="billing-report-customer-contact">{bill.customerContact}</div>
                   </td>
 
                   {/* Payment Mode */}
@@ -307,28 +288,28 @@ const BillingReport = () => {
                   </td>
 
                   {/* Amounts */}
-                  <td className="amount-column">
-                    <div className="amount-value">{formatCurrency(bill.grandTotal)}</div>
+                  <td className="billing-report-amount-column">
+                    <div className="billing-report-amount-value">{formatCurrency(bill.grandTotal)}</div>
                   </td>
 
                   {/* Actions */}
                   <td style={{ textAlign: 'center', position: 'relative' }}>
                     <button 
-                      className="action-btn" 
+                      className="billing-report-action-btn" 
                       title="View Details"
                       onClick={(e) => handleActionMenuClick(bill.id, e)}
                     >
                       <FaEye size={16} />
                     </button>
                     {openActionMenu === bill.id && (
-                      <div className="action-menu">
-                        <button className="action-menu-item" onClick={() => handleEdit(bill.id)}>
+                      <div className="billing-report-action-menu">
+                        <button className="billing-report-action-menu-item" onClick={() => handleEdit(bill.id)}>
                           View Details
                         </button>
-                        <button className="action-menu-item" onClick={() => handleDownload(bill.id)}>
+                        <button className="billing-report-action-menu-item" onClick={() => handleDownload(bill.id)}>
                           Download
                         </button>
-                        <button className="action-menu-item delete" onClick={() => handleDelete(bill.id)}>
+                        <button className="billing-report-action-menu-item billing-report-delete" onClick={() => handleDelete(bill.id)}>
                           Delete
                         </button>
                       </div>
@@ -341,8 +322,8 @@ const BillingReport = () => {
         </div>
 
         {/* Footer / Pageno */}
-        <div className="pagination-wrapper">
-          <div className="pagination-buttons">
+        <div className="billing-report-pagination-wrapper">
+          <div className="billing-report-pagination-buttons">
             <button 
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
@@ -353,7 +334,7 @@ const BillingReport = () => {
               <button
                 key={page}
                 onClick={() => handlePageChange(page)}
-                className={currentPage === page ? 'active' : ''}
+                className={currentPage === page ? 'billing-report-active' : ''}
               >
                 {page}
               </button>
@@ -370,29 +351,29 @@ const BillingReport = () => {
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm.isOpen && (
-        <div className="popup-overlay" onClick={cancelDelete}>
-          <div className="popup-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="popup-header">
+        <div className="billing-report-popup-overlay" onClick={cancelDelete}>
+          <div className="billing-report-popup-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="billing-report-popup-header">
               <h3>Delete Bill</h3>
               <button 
-                className="popup-close-btn" 
+                className="billing-report-popup-close-btn" 
                 onClick={cancelDelete}
               >
                 ×
               </button>
             </div>
-            <div className="popup-body">
+            <div className="billing-report-popup-body">
               <p>Are you sure you want to delete this bill? This action cannot be undone.</p>
             </div>
-            <div className="popup-footer">
+            <div className="billing-report-popup-footer">
               <button 
-                className="popup-btn-cancel" 
+                className="billing-report-popup-btn-cancel" 
                 onClick={cancelDelete}
               >
                 Cancel
               </button>
               <button 
-                className="popup-btn-delete" 
+                className="billing-report-popup-btn-delete" 
                 onClick={confirmDelete}
               >
                 Delete
@@ -409,17 +390,17 @@ const BillingReport = () => {
 
 const PaymentBadge = ({ mode }) => {
   const badgeClasses = {
-    cash: "badge-cash",
-    card: "badge-card",
-    upi: "badge-upi",
-    netbanking: "badge-netbanking",
-    default: "badge-cash"
+    cash: "billing-report-badge-cash",
+    card: "billing-report-badge-card",
+    upi: "billing-report-badge-upi",
+    netbanking: "billing-report-badge-netbanking",
+    default: "billing-report-badge-cash"
   };
 
   const badgeClass = badgeClasses[mode] || badgeClasses.default;
 
   return (
-    <span className={`payment-badge ${badgeClass}`}>
+    <span className={`billing-report-payment-badge ${badgeClass}`}>
       {mode}
     </span>
   );

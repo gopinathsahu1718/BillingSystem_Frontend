@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import './Billing.css';
+import './Cart.css';
 import itemsData from '../../context/itemsData'; 
 
-const Billing = () => {
+const Cart = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [search, setSearch] = useState('');
@@ -251,32 +251,19 @@ const updateDiscount = (index, discountPercent) => {
       setShowPopup(true);
       return;
     }
-
-    // Validate mobile number
-    const mobileRegex = /^[6-9][0-9]{9}$/;
-    if (!mobileRegex.test(mobileNumber)) {
-      setPopupMessage('Invalid mobile number');
-      setShowPopup(true);
-      return;
-    }
-
     if (cart.length === 0) {
-      setPopupMessage('Cart is empty. Please add items first');
+      setPopupMessage('Cart is empty! Please add items.');
       setShowPopup(true);
       return;
     }
-    if (!customer) {
-        setPopupMessage('Please select a store');
-        setShowPopup(true);
-        return;
-    }
 
-    // Prepare billing data
     const billData = {
-      store: customer,
+      billNo: `BILL-${Date.now()}`,
+      date: new Date().toLocaleDateString('en-IN'),
+      time: new Date().toLocaleTimeString('en-IN'),
       customerName,
-      mobileNumber,
-      contactNo: mobileNumber,
+      mobile: mobileNumber,
+      store: customer,
       paymentMode,
       cart,
       summary
@@ -289,26 +276,26 @@ const updateDiscount = (index, discountPercent) => {
 
 
   return (
-    <div className="billing-page">
+    <div className="billing-main-page">
       {/* Popup Modal */}
       {showPopup && (
-        <div className="popup-overlay">
-          <div className="popup-modal">
-            <div className="popup-header">
+        <div className="billing-main-popup-overlay">
+          <div className="billing-main-popup-modal">
+            <div className="billing-main-popup-header">
               <h3>Alert</h3>
               <button 
-                className="popup-close-btn"
+                className="billing-main-popup-close-btn"
                 onClick={() => setShowPopup(false)}
               >
                 ×
               </button>
             </div>
-            <div className="popup-body">
+            <div className="billing-main-popup-body">
               <p>{popupMessage}</p>
             </div>
-            <div className="popup-footer">
+            <div className="billing-main-popup-footer">
               <button 
-                className="popup-btn-ok"
+                className="billing-main-popup-btn-ok"
                 onClick={() => setShowPopup(false)}
               >
                 OK
@@ -319,21 +306,20 @@ const updateDiscount = (index, discountPercent) => {
       )}
 
       {/* Header */}
-      <div className="page-header">
-        <h2 className="page-title">
+      <div className="billing-main-header">
+        <h2 className="billing-main-title">
           <i className="bi bi-receipt me-2"></i> Billing
         </h2>
       </div>
 
       {/* Search */}
-      <form className="search-filter-section" onSubmit={handleSearchSubmit}>
-        <div className="search-container">
-          <div className="search-row">
-            <div className="search-input-wrapper">
-              {/* <i className="bi bi-search search-icon"></i> */}
+      <form className="billing-main-search-section" onSubmit={handleSearchSubmit}>
+        <div className="billing-main-search-container">
+          <div className="billing-main-search-row">
+            <div className="billing-main-search-input-wrapper">
               <input
                 type="text"
-                className="search-input"
+                className="billing-main-search-input"
                 placeholder="Search items for billing..."
                 value={search}
                 onChange={handleSearch}
@@ -342,7 +328,7 @@ const updateDiscount = (index, discountPercent) => {
               {search && (
                 <button
                   type="button"
-                  className="clear-search-btn"
+                  className="billing-main-clear-search-btn"
                   onClick={() => {
                     setSearch('');
                     setSuggestions([]);
@@ -353,31 +339,31 @@ const updateDiscount = (index, discountPercent) => {
               )}
               {/* Suggestions Dropdown */}
               {suggestions.length > 0 && (
-                <ul className="suggestions-list">
+                <ul className="billing-main-suggestions-list">
                   {suggestions.map((item, idx) => (
                     <li
                       key={idx}
-                      className="suggestion-item"
+                      className="billing-main-suggestion-item"
                       onClick={() => handleSelectSuggestion(item)}
                     >
-                      <span className="suggestion-name">{item.name}</span>
-                      <span className="suggestion-price">₹{item.price}</span>
+                      <span className="billing-main-suggestion-name">{item.name}</span>
+                      <span className="billing-main-suggestion-price">₹{item.price}</span>
                     </li>
                   ))}
                 </ul>
               )}
             </div>
-            <button type="submit" className="add-btn">
+            <button type="submit" className="billing-main-add-btn">
               Add Item
             </button>
           </div>
         </div>
       </form>
 
-      <div className="billing-body">
-        <div className="cart-section">
+      <div className="billing-main-body">
+        <div className="billing-main-cart-section">
           <h3>Cart</h3>
-          <table className="cart-table">
+          <table className="billing-main-cart-table">
             <thead>
               <tr>
                 <th>#</th>
@@ -403,7 +389,7 @@ const updateDiscount = (index, discountPercent) => {
                   <td>
                     <input
                       type="number"
-                      className="qty-input"
+                      className="billing-main-qty-input"
                       value={item.quantity}
                       min="1"
                       onChange={(e) =>
@@ -419,7 +405,7 @@ const updateDiscount = (index, discountPercent) => {
                   <td>
                     <input
                       type="number"
-                      className="qty-input"
+                      className="billing-main-qty-input"
                       value={item.discount || 0}
                       min="0"
                       max="100"
@@ -431,7 +417,7 @@ const updateDiscount = (index, discountPercent) => {
                   <td>₹{(item.lineTotal - (item.lineTotal * item.discount) / 100).toFixed(2)}</td>
                   <td>
                     <button 
-                      className="delete-btn"
+                      className="billing-main-delete-btn"
                       onClick={() => deleteItem(idx)}
                       title="Delete item"
                     >
@@ -444,29 +430,28 @@ const updateDiscount = (index, discountPercent) => {
           </table>
         </div>
 
-        <div className="right-sidebar">
-          <div className="customer-section">
-  <label className="mb-2 d-block">Select Store:</label>
-  <div className="store-buttons">
-    <button
-      type="button"
-      className={`store-btn ${customer === 'swasthik' ? 'active' : ''}`}
-      onClick={() => setCustomer('swasthik')}
-    >
-      Swasthik Enterprise
-    </button>
-    <button
-      type="button"
-      className={`store-btn ${customer === 'lakshmi' ? 'active' : ''}`}
-      onClick={() => setCustomer('lakshmi')}
-    >
-      Lakshmi Bookstore
-    </button>
-  </div>
-</div>
+        <div className="billing-main-right-sidebar">
+          <div className="billing-main-customer-section">
+            <label className="mb-2 d-block">Select Store:</label>
+            <div className="billing-main-store-buttons">
+              <button
+                type="button"
+                className={`billing-main-store-btn ${customer === 'swasthik' ? 'billing-main-active' : ''}`}
+                onClick={() => setCustomer('swasthik')}
+              >
+                Swasthik Enterprise
+              </button>
+              <button
+                type="button"
+                className={`billing-main-store-btn ${customer === 'lakshmi' ? 'billing-main-active' : ''}`}
+                onClick={() => setCustomer('lakshmi')}
+              >
+                Lakshmi Bookstore
+              </button>
+            </div>
+          </div>
 
-
-          <div className="summary-section">
+          <div className="billing-main-summary-section">
             <h3>Summary</h3>
             <p>Items Count: {summary.itemCount}</p>
             <p>Taxable Amount: ₹{summary.taxable.toFixed(2)}</p>
@@ -476,35 +461,35 @@ const updateDiscount = (index, discountPercent) => {
             <h2>Grand Total: ₹{summary.total.toFixed(2)}</h2>
           </div>
 
-          <div className="customer-details-section">
+          <div className="billing-main-customer-details-section">
             <h3>Customer Details</h3>
-            <div className="form-group">
+            <div className="billing-main-form-group">
               <label htmlFor="customer-name">Customer Name:</label>
               <input
                 id="customer-name"
                 type="text"
-                className="form-input"
+                className="billing-main-form-input"
                 placeholder="Enter customer name"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
               />
             </div>
-            <div className="form-group">
+            <div className="billing-main-form-group">
               <label htmlFor="mobile-number">Mobile Number:</label>
               <input
                 id="mobile-number"
                 type="tel"
-                className="form-input"
+                className="billing-main-form-input"
                 placeholder="Enter mobile number"
                 value={mobileNumber}
                 onChange={(e) => setMobileNumber(e.target.value)}
               />
             </div>
-            <div className="form-group">
+            <div className="billing-main-form-group">
               <label htmlFor="payment-mode">Payment Mode:</label>
               <select
                 id="payment-mode"
-                className="form-input"
+                className="billing-main-form-input"
                 value={paymentMode}
                 onChange={(e) => setPaymentMode(e.target.value)}
               >
@@ -515,7 +500,7 @@ const updateDiscount = (index, discountPercent) => {
                 <option value="cheque">Cheque</option>
               </select>
             </div>
-            <button className="generate-bill-btn" onClick={handleGenerateBill}>
+            <button className="billing-main-generate-bill-btn" onClick={handleGenerateBill}>
               Generate Bill
             </button>
           </div>
@@ -525,4 +510,4 @@ const updateDiscount = (index, discountPercent) => {
   );
 };
 
-export default Billing;
+export default Cart;

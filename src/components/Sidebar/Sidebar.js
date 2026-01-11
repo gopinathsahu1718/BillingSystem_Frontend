@@ -31,7 +31,7 @@ function Sidebar({ handleLogout, sidebarOpen, setSidebarOpen }) {
             </span>
           </div>
           <div className="logo-text">
-            <span className="company-name fs-5 fw-semibold">HearingZen</span>
+            <span className="company-name fs-5 fw-semibold">Billing System</span>
             <div className="admin-text">Admin</div>
           </div>
         </div>
@@ -67,27 +67,28 @@ function Sidebar({ handleLogout, sidebarOpen, setSidebarOpen }) {
 
           <li className="nav-item">
             <NavLink
-              to="/Cart-Billing"
+              to="/products"
+              className={({ isActive }) =>
+                `nav-link ${isActive ? 'active' : ''}`
+              }
+              onClick={closeSidebar}
+            >
+              
+              <i className="bi bi-receipt me-3"></i>
+              Product selection
+            </NavLink>
+          </li>
+          
+          <li className="nav-item">
+            <NavLink
+              to="/cart"
               className={({ isActive }) =>
                 `nav-link ${isActive ? 'active' : ''}`
               }
               onClick={closeSidebar}
             >
               <i className="bi bi-cart3 me-3"></i>
-              Cart Billing
-            </NavLink>
-          </li>
-          
-          <li className="nav-item">
-            <NavLink
-              to="/billing"
-              className={({ isActive }) =>
-                `nav-link ${isActive ? 'active' : ''}`
-              }
-              onClick={closeSidebar}
-            >
-              <i className="bi bi-receipt me-3"></i>
-              Billing
+              Cart
             </NavLink>
           </li>
 
@@ -104,45 +105,7 @@ function Sidebar({ handleLogout, sidebarOpen, setSidebarOpen }) {
             </NavLink>
           </li>
 
-          {/* Updated: Changed URL to /user-registration-progress */}
-          <li className="nav-item">
-            <NavLink
-              to="/user-registration-progress"
-              className={({ isActive }) =>
-                `nav-link ${isActive ? 'active' : ''}`
-              }
-              onClick={closeSidebar}
-            >
-              <i className="bi bi-people me-3"></i>
-              Users Registration Progress
-            </NavLink>
-          </li>
-
-          <li className="nav-item">
-            <NavLink
-              to="/role-change"
-              className={({ isActive }) =>
-                `nav-link ${isActive ? 'active' : ''}`
-              }
-              onClick={closeSidebar}
-            >
-              <i className="bi bi-shield-check me-3"></i>
-              Role Changing
-            </NavLink>
-          </li>
-
-          <li className="nav-item">
-            <NavLink
-              to="/feedbacks"
-              className={({ isActive }) =>
-                `nav-link ${isActive ? 'active' : ''}`
-              }
-              onClick={closeSidebar}
-            >
-              <i className="bi bi-chat-heart-fill me-3"></i>
-              Feedbacks
-            </NavLink>
-          </li>
+          
 
           <li className="nav-item">
             <NavLink

@@ -8,19 +8,16 @@ import MobileHeader from './components/MobileHeader/MobileHeader';
 import LogoutModal from './pages/LogoutModal/LogoutModal';
 import Login from './pages/Login/Login';
 import Dashboard from './pages/Dashboard/Dashboard';
-import LMSManagement from './pages/StoreManagement/StoreManagement';
-import Users from './pages/Users/Users';
-import RoleChange from './pages/RoleChange/RoleChange';
-import Feedbacks from './pages/Feedbacks/Feedbacks';
+
 import Profile from './pages/Profile/Profile';
 import ChangePassword from './pages/ChangePassword/ChangePassword';
 import BillFormat from './components/BillingFormat/BillFormat';
 import BillExample from './components/BillingFormat/BillExample';
-// import BillPage from './pages/BillPage/BillPage';
+
 import StoreManagement from './pages/StoreManagement/StoreManagement';
-import CartBilling from './pages/CartBilling/CartBilling';
+import ProductSelection from './pages/ProductSelection/ProductSelection';
 import BillingReport from './pages/BillingReport/BillingReport';
-import Billing from './pages/Billing/Billing';
+import Cart from './pages/Cart/Cart';
 import BillPage from './pages/BillPage/BillPage';
 
 
@@ -84,15 +81,13 @@ function AppContent() {
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/store-management" element={<StoreManagement />} />
-                    <Route path="/Cart-Billing" element={<CartBilling />} />
-                    <Route path="/user-registration-progress" element={<Users />} />
-                    <Route path="/role-change" element={<RoleChange />} />
-                    <Route path="/feedbacks" element={<Feedbacks />} />
+                    <Route path="/products" element={<ProductSelection />} />
+                    
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/profile/change-password" element={<ChangePassword />} />
                     <Route path="/bill-page" element={<BillPage />} />
                     <Route path="/billing-report" element={<BillingReport />} />
-                    <Route path="/billing" element={<Billing />} />
+                    <Route path="/cart" element={<Cart />} />
 
                   </Routes>
                 </main>
