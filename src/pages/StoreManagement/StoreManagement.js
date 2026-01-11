@@ -38,6 +38,10 @@ const PREDEFINED_CATEGORIES = [
   const [isSubmittingSubcategory, setIsSubmittingSubcategory] = useState(false);
   const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
 
+  // Invalid field markers for UI validation
+  const [categoryInvalid, setCategoryInvalid] = useState({});
+  const [subcategoryInvalid, setSubcategoryInvalid] = useState({});
+  const [productInvalid, setProductInvalid] = useState({});
   // Attribute management states
   const [productAttributes, setProductAttributes] = useState([]);
   const [showAttributeForm, setShowAttributeForm] = useState(false);
@@ -118,6 +122,8 @@ const handlePredefinedCategoryChange = (selectedOption) => {
     selectedPredefinedCategory: selectedOption,
     name: selectedOption ? selectedOption.value : ""
   });
+  // clear invalid marker for predefined/category name
+  setCategoryInvalid((prev) => ({ ...prev, selectedPredefinedCategory: false, name: false }));
 };
 
   const fetchSubcategoriesAndProducts = useCallback(async (currentCategories) => {
@@ -285,11 +291,14 @@ const handlePredefinedCategoryChange = (selectedOption) => {
       setCategoryForm({ ...categoryForm, thumbnailFile: file, thumbnailPreview: preview });
     } else {
       setCategoryForm({ ...categoryForm, [name]: value });
+      // clear invalid marker when user types
+      setCategoryInvalid((prev) => ({ ...prev, [name]: false }));
     }
   };
 
   const handleSubcategoryChange = (selectedOption) => {
     setSubcategoryForm({ ...subcategoryForm, categoryId: selectedOption ? selectedOption.value : null });
+    setSubcategoryInvalid((prev) => ({ ...prev, categoryId: false }));
   };
 
   const handleSubcategoryOtherChange = (e) => {
@@ -311,15 +320,18 @@ const handlePredefinedCategoryChange = (selectedOption) => {
       setSubcategoryForm({ ...subcategoryForm, thumbnailFile: file, thumbnailPreview: preview });
     } else {
       setSubcategoryForm({ ...subcategoryForm, [name]: value });
+      setSubcategoryInvalid((prev) => ({ ...prev, [name]: false }));
     }
   };
 
   const handleProductCategoryChange = (selectedOption) => {
     setProductForm({ ...productForm, categoryId: selectedOption ? selectedOption.value : null, subCategoryId: null });
+    setProductInvalid((prev) => ({ ...prev, categoryId: false, subCategoryId: false }));
   };
 
   const handleProductSubcategoryChange = (selectedOption) => {
     setProductForm({ ...productForm, subCategoryId: selectedOption ? selectedOption.value : null });
+    setProductInvalid((prev) => ({ ...prev, subCategoryId: false }));
   };
 
   const handleProductOtherChange = (e) => {
@@ -342,9 +354,11 @@ const handlePredefinedCategoryChange = (selectedOption) => {
     } else if (name === "price" || name === "actualPrice" || name === "stock" || name === "gstRate") {
       if (/^\d*\.?\d*$/.test(value)) {
         setProductForm({ ...productForm, [name]: value });
+        setProductInvalid((prev) => ({ ...prev, [name]: false }));
       }
     } else {
       setProductForm({ ...productForm, [name]: value });
+      setProductInvalid((prev) => ({ ...prev, [name]: false }));
     }
   };
 
@@ -485,13 +499,14 @@ const handlePredefinedCategoryChange = (selectedOption) => {
       return;
     }
     if (!categoryForm.name.trim() && !categoryForm.selectedPredefinedCategory) {
-  showToast("error", "Error", "Category selection is required.");
-  return;
-}
+      setCategoryInvalid({ name: true, selectedPredefinedCategory: true });
+      showToast("error", "Error", "Category selection is required.");
+      return;
+    }
 
-const categoryName = categoryForm.selectedPredefinedCategory 
-  ? categoryForm.selectedPredefinedCategory.value 
-  : categoryForm.name.trim();
+    const categoryName = categoryForm.selectedPredefinedCategory 
+      ? categoryForm.selectedPredefinedCategory.value 
+      : categoryForm.name.trim();
     if (isDuplicateCategory(categoryForm.name, editCategory)) {
       showToast("error", "Error", "Duplicate category name.");
       return;
@@ -603,6 +618,7 @@ const matchingPredefined = PREDEFINED_CATEGORIES.find(
       return;
     }
     if (!subcategoryForm.name.trim() || !subcategoryForm.categoryId) {
+      setSubcategoryInvalid({ name: !subcategoryForm.name.trim(), categoryId: !subcategoryForm.categoryId });
       showToast("error", "Error", "Subcategory name and category are required.");
       return;
     }
@@ -727,6 +743,13 @@ const matchingPredefined = PREDEFINED_CATEGORIES.find(
       return;
     }
     if (!productForm.name.trim() || !productForm.categoryId || !productForm.subCategoryId || !productForm.sku.trim() || !productForm.price) {
+      setProductInvalid({
+        name: !productForm.name.trim(),
+        categoryId: !productForm.categoryId,
+        subCategoryId: !productForm.subCategoryId,
+        sku: !productForm.sku.trim(),
+        price: !productForm.price
+      });
       showToast("error", "Error", "All mandatory fields are required.");
       return;
     }
@@ -1147,6 +1170,19 @@ const matchingPredefined = PREDEFINED_CATEGORIES.find(
     return path;
   };
 
+  // helper to apply select styles with invalid visual state
+  const getSelectStyles = (invalid = false) => ({
+    ...selectStyles,
+    control: (provided) => {
+      const base = selectStyles.control(provided);
+      return {
+        ...base,
+        borderColor: invalid ? '#ef4444' : base.borderColor,
+        boxShadow: invalid ? '0 0 0 4px rgba(239,68,68,0.08)' : base.boxShadow,
+      };
+    }
+  });
+
   const selectStyles = {
     control: (provided) => ({
       ...provided,
@@ -1284,7 +1320,7 @@ const matchingPredefined = PREDEFINED_CATEGORIES.find(
       onChange={handlePredefinedCategoryChange}
       placeholder="Choose a category"
       isClearable
-      styles={selectStyles}
+      styles={getSelectStyles(!!categoryInvalid.selectedPredefinedCategory)}
     />
   </div>
 ) : (
@@ -1501,7 +1537,7 @@ const matchingPredefined = PREDEFINED_CATEGORIES.find(
                     onChange={handleSubcategoryChange}
                     placeholder="Select a category"
                     isClearable
-                    styles={selectStyles}
+                    styles={getSelectStyles(!!subcategoryInvalid.categoryId)}
                   />
                 </div>
 
@@ -1518,6 +1554,7 @@ const matchingPredefined = PREDEFINED_CATEGORIES.find(
                       onChange={handleSubcategoryOtherChange}
                       required
                       maxLength={100}
+                      className={subcategoryInvalid.name ? 'input-invalid' : ''}
                     />
                     <span className="char-count">{subcategoryForm.name.length}/100</span>
                   </div>
@@ -1725,6 +1762,7 @@ const matchingPredefined = PREDEFINED_CATEGORIES.find(
                             value={productForm.name}
                             onChange={handleProductOtherChange}
                             maxLength={200}
+                            className={productInvalid.name ? 'input-invalid' : ''}
                           />
                           <span className="char-count">{productForm.name.length}/200</span>
                         </div>
@@ -1803,7 +1841,7 @@ const matchingPredefined = PREDEFINED_CATEGORIES.find(
                         onChange={handleProductCategoryChange}
                         placeholder="Select a category"
                         isClearable
-                        styles={selectStyles}
+                        styles={getSelectStyles(!!productInvalid.categoryId)}
                       />
                     </div>
 
@@ -1819,7 +1857,7 @@ const matchingPredefined = PREDEFINED_CATEGORIES.find(
                         onChange={handleProductSubcategoryChange}
                         placeholder="Select a subcategory"
                         isClearable
-                        styles={selectStyles}
+                        styles={getSelectStyles(!!productInvalid.subCategoryId)}
                         isDisabled={!productForm.categoryId}
                       />
                     </div>
@@ -1845,6 +1883,7 @@ const matchingPredefined = PREDEFINED_CATEGORIES.find(
                           value={productForm.sku}
                           onChange={handleProductOtherChange}
                           maxLength={50}
+                          className={productInvalid.sku ? 'input-invalid' : ''}
                         />
                         <span className="char-count">{productForm.sku.length}/50</span>
                       </div>
@@ -1928,6 +1967,7 @@ const matchingPredefined = PREDEFINED_CATEGORIES.find(
                           onChange={handleProductOtherChange}
                           min="0"
                           step="0.01"
+                          className={productInvalid.price ? 'input-invalid' : ''}
                         />
                       </div>
                     </div>
