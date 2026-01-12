@@ -1,3 +1,6 @@
+.sort-products{
+  min-width: 220px !important;
+}
 /* Global Styles */
 * {
   margin: 0;
@@ -13,7 +16,17 @@
   max-width: 100%;
   overflow-x: hidden;
 }
-
+.page-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border-radius: 12px !important;
+  padding: 1rem !important;
+  margin-bottom: 1.5rem !important;
+  color: white !important;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+  height: 81px !important;
+  display: flex !important;
+  align-items: center !important;
+}
 /* Page Header */
 /* .page-header {
   background: #ffffff;

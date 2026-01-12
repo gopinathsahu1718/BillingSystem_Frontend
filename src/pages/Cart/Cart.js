@@ -7,6 +7,7 @@ import { generateProfessionalBillPDF } from "../PDFGenerator";
 const Cart = () => {
   const BASE_URL = "http://13.232.200.172/api";
   const { token } = useAuth();
+
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [categoryType, setCategoryType] = useState(null);
@@ -19,7 +20,6 @@ const Cart = () => {
     newQuantity: 1,
   });
 
-  // Customer Form State
   const [customerDetails, setCustomerDetails] = useState({
     customerName: "",
     customerContact: "",
@@ -37,9 +37,11 @@ const Cart = () => {
       const response = await axios.get(`${BASE_URL}/cart`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
       if (response.data && response.data.success) {
         const items = response.data.data || [];
         setCartItems(items);
+
         if (items.length > 0 && items[0].product) {
           const category = items[0].product.category?.name;
           setCategoryType(category);
@@ -89,6 +91,7 @@ const Cart = () => {
       showToast("error", "Error", "Quantity must be at least 1");
       return;
     }
+
     try {
       await axios.put(
         `${BASE_URL}/cart/${quantityModal.cartId}`,
@@ -106,6 +109,7 @@ const Cart = () => {
 
   const handleQuantityChange = async (cartId, newQuantity) => {
     if (newQuantity < 1 || isNaN(newQuantity)) return;
+
     try {
       await axios.put(
         `${BASE_URL}/cart/${cartId}`,
@@ -122,6 +126,7 @@ const Cart = () => {
 
   const handleRemoveItem = async (cartId) => {
     if (!window.confirm("Are you sure you want to remove this item?")) return;
+
     try {
       await axios.delete(`${BASE_URL}/cart/${cartId}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -140,8 +145,8 @@ const Cart = () => {
   };
 
   const calculateItemSubtotal = (item) => {
-    const price = parseFloat(item.attribute ? item.attribute.price : item.product.price) || 0;
-    return price * item.quantity;
+    const price = item.attribute ? parseFloat(item.attribute.price) : parseFloat(item.product.price);
+    return (price || 0) * (item.quantity || 0);
   };
 
   const calculateItemGST = (item) => {
@@ -173,11 +178,10 @@ const Cart = () => {
       const itemSubtotal = calculateItemSubtotal(item);
       subtotal += itemSubtotal;
 
-      // Calculate discount
-      const price = parseFloat(item.attribute ? item.attribute.price : item.product.price) || 0;
+      const price = item.attribute ? parseFloat(item.attribute.price) : parseFloat(item.product.price);
       const actualPrice = item.attribute ? parseFloat(item.attribute.actualPrice || 0) : parseFloat(item.product.actualPrice || 0);
       if (actualPrice > price) {
-        const discount = (actualPrice - price) * item.quantity;
+        const discount = (actualPrice - price) * (item.quantity || 0);
         totalDiscount += discount;
       }
 
@@ -191,12 +195,12 @@ const Cart = () => {
     grandTotal = subtotal + totalCGST + totalSGST;
 
     return {
-      subtotal: subtotal.toFixed(2),
-      discount: totalDiscount.toFixed(2),
-      cgst: totalCGST.toFixed(2),
-      sgst: totalSGST.toFixed(2),
-      totalGST: (totalCGST + totalSGST).toFixed(2),
-      grandTotal: grandTotal.toFixed(2),
+      subtotal: parseFloat(subtotal.toFixed(2)),
+      discount: parseFloat(totalDiscount.toFixed(2)),
+      cgst: parseFloat(totalCGST.toFixed(2)),
+      sgst: parseFloat(totalSGST.toFixed(2)),
+      totalGST: parseFloat((totalCGST + totalSGST).toFixed(2)),
+      grandTotal: parseFloat(grandTotal.toFixed(2)),
     };
   };
 
@@ -239,7 +243,9 @@ const Cart = () => {
         showToast("success", "Success", "Bill created successfully!");
 
         const billId = response.data.data.id;
-        await generatePDF(billId);
+
+        // Display PDF in new window instead of downloading
+        await displayPDFInNewWindow(billId);
 
         setCustomerDetails({
           customerName: "",
@@ -258,15 +264,37 @@ const Cart = () => {
     }
   };
 
-  const generatePDF = async (billId) => {
+  const displayPDFInNewWindow = async (billId) => {
     try {
       const response = await axios.get(`${BASE_URL}/bills/${billId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
       if (response.data && response.data.success) {
         const bill = response.data.data;
-        await generateProfessionalBillPDF(bill, categoryType);
-        showToast("success", "Success", "PDF generated successfully!");
+
+        // Generate PDF and get the blob (pass token as 4th parameter)
+        const pdfBlob = await generateProfessionalBillPDF(bill, categoryType, true, token);
+
+        if (pdfBlob) {
+          // Create blob URL
+          const blobUrl = URL.createObjectURL(pdfBlob);
+
+          // Open in new window/tab
+          const pdfWindow = window.open(blobUrl, '_blank');
+
+          if (pdfWindow) {
+            pdfWindow.document.title = `Bill ${bill.billNumber}`;
+
+            pdfWindow.onload = () => {
+              // Cleanup blob URL after window loads
+              URL.revokeObjectURL(blobUrl);
+            };
+          } else {
+            showToast("error", "Error", "Please allow popups to view the PDF");
+            URL.revokeObjectURL(blobUrl);
+          }
+        }
       }
     } catch (error) {
       console.error("Failed to generate PDF:", error);
@@ -322,7 +350,6 @@ const Cart = () => {
         </div>
       ) : (
         <>
-          {/* Full Width Cart Table */}
           <div className="cart-table-section">
             <div className="cart-table-container">
               <table className="cart-table">
@@ -389,18 +416,18 @@ const Cart = () => {
                           </div>
                         </td>
                         <td data-label="Price">
-                          ₹{price.toFixed(2)}
+                          Rs {price.toFixed(2)}
                         </td>
                         {!isLaxmiBookstore && (
                           <>
-                            <td data-label="Taxable">₹{subtotal.toFixed(2)}</td>
+                            <td data-label="Taxable">Rs {subtotal.toFixed(2)}</td>
                             <td data-label="GST %">{item.product.gstRate || 0}%</td>
-                            <td data-label="CGST">₹{gst.cgst.toFixed(2)}</td>
-                            <td data-label="SGST">₹{gst.sgst.toFixed(2)}</td>
+                            <td data-label="CGST">Rs {gst.cgst.toFixed(2)}</td>
+                            <td data-label="SGST">Rs {gst.sgst.toFixed(2)}</td>
                           </>
                         )}
                         <td data-label="Total" className="total-cell">
-                          ₹{total.toFixed(2)}
+                          Rs {total.toFixed(2)}
                         </td>
                         <td data-label="Action">
                           <button
@@ -418,9 +445,7 @@ const Cart = () => {
             </div>
           </div>
 
-          {/* Bottom Row - Summary Left + Customer Right */}
           <div className="cart-bottom-row">
-            {/* Left Side - Cart Summary */}
             <div className="summary-card">
               <div className="summary-header">
                 <h3>
@@ -432,41 +457,41 @@ const Cart = () => {
                   {getCategoryDisplayName()}
                 </div>
               </div>
+
               <div className="summary-body">
                 <div className="summary-row">
                   <span>Subtotal:</span>
-                  <span>₹{summary.subtotal}</span>
+                  <span>Rs {summary.subtotal}</span>
                 </div>
                 {parseFloat(summary.discount) > 0 && (
                   <div className="summary-row discount-row">
                     <span>Discount:</span>
-                    <span className="discount-amount">-₹{summary.discount}</span>
+                    <span className="discount-amount">-Rs {summary.discount}</span>
                   </div>
                 )}
                 {!isLaxmiBookstore && (
                   <>
                     <div className="summary-row">
                       <span>CGST:</span>
-                      <span>₹{summary.cgst}</span>
+                      <span>Rs {summary.cgst}</span>
                     </div>
                     <div className="summary-row">
                       <span>SGST:</span>
-                      <span>₹{summary.sgst}</span>
+                      <span>Rs {summary.sgst}</span>
                     </div>
                     <div className="summary-row">
                       <span>Total GST:</span>
-                      <span>₹{summary.totalGST}</span>
+                      <span>Rs {summary.totalGST}</span>
                     </div>
                   </>
                 )}
                 <div className="summary-row grand-total">
                   <span>Grand Total:</span>
-                  <span>₹{summary.grandTotal}</span>
+                  <span>Rs {summary.grandTotal}</span>
                 </div>
               </div>
             </div>
 
-            {/* Right Side - Customer Form */}
             <div className="customer-card">
               <h4>
                 <i className="bi bi-person-fill me-2"></i>
@@ -545,7 +570,6 @@ const Cart = () => {
         </>
       )}
 
-      {/* Quantity Update Modal */}
       {quantityModal.show && (
         <div className="modal-overlay" onClick={closeQuantityModal}>
           <div className="quantity-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -605,7 +629,6 @@ const Cart = () => {
         </div>
       )}
 
-      {/* Toast Notifications */}
       <div className="toast-container">
         {toasts.map((toast) => (
           <div key={toast.id} className={`toast-notification ${toast.type}`}>

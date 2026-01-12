@@ -18,6 +18,7 @@ const ProductSelection = () => {
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSubcategory, setSelectedSubcategory] = useState(null);
+  const [sortBy, setSortBy] = useState(null);
 
   // Cart states
   const [cartItems, setCartItems] = useState([]);
@@ -213,16 +214,54 @@ const ProductSelection = () => {
     return matchesCategory && matchesSearch && matchesSubcategory && isActive;
   });
 
+  // Sort products based on selected sort option
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    if (!sortBy) return 0;
+
+    switch (sortBy.value) {
+      case 'name_asc':
+        return a.name.localeCompare(b.name);
+      case 'name_desc':
+        return b.name.localeCompare(a.name);
+      case 'price_low':
+        return a.price - b.price;
+      case 'price_high':
+        return b.price - a.price;
+      case 'discount_high':
+        const discountA = calculateDiscount(a.price, a.actualPrice);
+        const discountB = calculateDiscount(b.price, b.actualPrice);
+        return discountB - discountA;
+      case 'stock_high':
+        return b.stock - a.stock;
+      case 'stock_low':
+        return a.stock - b.stock;
+      default:
+        return 0;
+    }
+  });
+
   // Get subcategories for active category
   const currentCategorySubcategories = subcategories
     .filter((sc) => sc.categoryId === getCurrentCategoryId())
     .map((sc) => ({ value: sc.id, label: sc.name }));
 
-  const activeFiltersCount = [searchTerm, selectedSubcategory].filter(Boolean).length;
+  // Sort options
+  const sortOptions = [
+    { value: 'name_asc', label: 'Name: A to Z', icon: 'bi-sort-alpha-down' },
+    { value: 'name_desc', label: 'Name: Z to A', icon: 'bi-sort-alpha-up' },
+    { value: 'price_low', label: 'Price: Low to High', icon: 'bi-sort-numeric-down' },
+    { value: 'price_high', label: 'Price: High to Low', icon: 'bi-sort-numeric-up' },
+    { value: 'discount_high', label: 'Discount: High to Low', icon: 'bi-percent' },
+    { value: 'stock_high', label: 'Stock: High to Low', icon: 'bi-boxes' },
+    { value: 'stock_low', label: 'Stock: Low to High', icon: 'bi-box' },
+  ];
+
+  const activeFiltersCount = [searchTerm, selectedSubcategory, sortBy].filter(Boolean).length;
 
   const clearFilters = () => {
     setSearchTerm("");
     setSelectedSubcategory(null);
+    setSortBy(null);
   };
 
   const selectStyles = {
@@ -531,12 +570,12 @@ const ProductSelection = () => {
           <div className="header-stats">
             <div className="stat-item">
               <span className="stat-number">{getLaxmiBookstoreCount()}</span>
-              <span className="stat-labelR">Laxmi Bookstore</span>
+              <span className="stat-label">Laxmi Bookstore</span>
             </div>
             <div className="stat-divider"></div>
             <div className="stat-item">
               <span className="stat-number">{getSwasthikEnterprisesCount()}</span>
-              <span className="stat-labelR">Swasthik Enterprises</span>
+              <span className="stat-label">Swasthik Enterprises</span>
             </div>
           </div>
         </div>
@@ -586,6 +625,21 @@ const ProductSelection = () => {
                 styles={selectStyles}
                 className="filter-select"
               />
+              <Select
+                options={sortOptions}
+                value={sortBy}
+                onChange={setSortBy}
+                placeholder="Sort By"
+                isClearable
+                styles={selectStyles}
+                className="filter-select sort-products"
+                formatOptionLabel={(option) => (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <i className={option.icon}></i>
+                    <span>{option.label}</span>
+                  </div>
+                )}
+              />
               {activeFiltersCount > 0 && (
                 <button className="btn-clear-filters" onClick={clearFilters}>
                   <i className="bi bi-x-circle"></i> Clear {activeFiltersCount} Filter{activeFiltersCount > 1 ? 's' : ''}
@@ -595,7 +649,7 @@ const ProductSelection = () => {
             {activeFiltersCount > 0 && (
               <div className="filter-info">
                 <i className="bi bi-funnel"></i>
-                <span>{filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''} found</span>
+                <span>{sortedProducts.length} product{sortedProducts.length !== 1 ? 's' : ''} found</span>
               </div>
             )}
           </div>
@@ -605,7 +659,7 @@ const ProductSelection = () => {
               <i className="bi bi-hourglass-split"></i>
               <p>Loading products...</p>
             </div>
-          ) : filteredProducts.length === 0 ? (
+          ) : sortedProducts.length === 0 ? (
             <div className="no-results">
               <i className="bi bi-inbox"></i>
               <p>No products found in {CATEGORY_MAPPING[activeCategory]?.displayName}</p>
@@ -633,7 +687,7 @@ const ProductSelection = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredProducts.map((product, index) => (
+                  {sortedProducts.map((product, index) => (
                     <ProductTableRow 
                       key={product.id} 
                       product={product} 

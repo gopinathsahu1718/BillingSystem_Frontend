@@ -1,271 +1,689 @@
-// src/pages/Profile.js
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import { Building2, Mail, Phone, MapPin, CreditCard, Building, Save, Edit2, X, Camera, Loader, AlertCircle } from 'lucide-react';
 import './Profile.css';
+import { useAuth } from "../../context/AuthContext";
 
-const API_BASE = 'https://api.hearingzen.in/api/user';
+const API_BASE = 'http://13.232.200.172/api/store/profile';
 
-function Profile() {
-  const { user: authUser, token, loading: authLoading } = useAuth();
-
-  const [profile, setProfile] = useState({
-    username: '',
-    email: '',
-    contact: '',
-  });
-  const [originalProfile, setOriginalProfile] = useState({});
+const StoreProfileCard = ({ storeType }) => {
+  const { token } = useAuth();
+  const [profile, setProfile] = useState(null);
+  const [originalProfile, setOriginalProfile] = useState(null);
   const [editing, setEditing] = useState(false);
-  const [activeField, setActiveField] = useState(null);
-  const [errors, setErrors] = useState({});
-  const [saveSuccess, setSaveSuccess] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [activeTab, setActiveTab] = useState('about');
 
-  // === API Helper ===
-  const api = async (path, opts = {}) => {
-    if (!token) throw new Error('No token');
-    const res = await fetch(`${API_BASE}${path}`, {
-      ...opts,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        ...opts.headers,
-      },
-    });
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message || 'API error');
-    return json;
-  };
-
-  // === Fetch Profile ===
   useEffect(() => {
-    if (!token || authLoading) return;
-
-    (async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const { data } = await api('/profile');
-        const { username, email, contact } = data;
-
-        const normalized = { username, email, contact: contact || '' };
-        setProfile(normalized);
-        setOriginalProfile(normalized);
-      } catch (e) {
-        setError(e.message);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [token, authLoading]);
-
-  // === Input Change ===
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-
-    if (name === 'contact') {
-      if (!/^\d{0,10}$/.test(value)) return;
-      if (value.length > 0 && !['9', '8', '7', '6'].includes(value.charAt(0))) return;
+    if (token) {
+      fetchProfile();
     }
+  }, [storeType, token]);
 
-    if (name === 'username') {
-      const emojiRegex = /[^a-zA-Z\s]/;
-      if (emojiRegex.test(value)) return;
+  const fetchProfile = async () => {
+    if (!token) {
+      setError('Authentication token not found');
+      setLoading(false);
+      return;
     }
-
-    setProfile({ ...profile, [name]: value });
-  };
-
-  const handleEdit = () => setEditing(true);
-  const handleFocus = (field) => editing && setActiveField(field);
-  const handleBlur = () => setActiveField(null);
-
-  // === Save to API ===
-  const handleSave = async () => {
-    let newErrors = {};
-
-    if (!profile.username?.trim()) newErrors.username = 'Name is required';
-    if (!profile.contact) newErrors.contact = "Contact can't be empty";
-    if (profile.contact && profile.contact.length !== 10) {
-      newErrors.contact = 'Contact must be exactly 10 digits';
-    }
-    if (profile.contact && !['9', '8', '7', '6'].includes(profile.contact[0])) {
-      newErrors.contact = 'Must start with 9, 8, 7, or 6';
-    }
-
-    if (profile.username) {
-      const name = profile.username.trim();
-      const hasEmoji = /[^a-zA-Z\s]/.test(name);
-      if (hasEmoji) {
-        newErrors.username = 'No emojis or special characters';
-      } else {
-        const words = name.split(' ').filter(w => w);
-        const isProperCase = words.every(w => w[0] === w[0].toUpperCase() && w.slice(1) === w.slice(1).toLowerCase());
-        const isAllUpper = name === name.toUpperCase();
-        const isAllLower = name === name.toLowerCase();
-
-        if (!isProperCase && !isAllUpper && !isAllLower) {
-          newErrors.username = 'Use proper case, all caps, or all lowercase';
-        }
-      }
-    }
-
-    setErrors(newErrors);
-
-    if (Object.keys(newErrors).length > 0) return;
 
     try {
       setLoading(true);
-      await api('/profile', {
-        method: 'PUT',
-        body: JSON.stringify({
-          username: profile.username,
-          contact: profile.contact,
-        }),
+      setError(null);
+      
+      const res = await fetch(`${API_BASE}/${storeType}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
-      setOriginalProfile(profile);
-      setEditing(false);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 2000);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+
+      const json = await res.json();
+      
+      if (json.success && json.data) {
+        setProfile(json.data);
+        setOriginalProfile(json.data);
+      } else {
+        setError(json.message || 'Failed to load profile');
+      }
     } catch (e) {
-      setError('Failed to update profile: ' + e.message);
+      console.error('Fetch profile error:', e);
+      setError(`Failed to fetch profile: ${e.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // === Breadcrumb ===
-  const getBreadcrumbText = () => {
-    if (!editing) return 'Manage your account settings and personal information';
-    if (activeField) {
-      const labels = { username: 'Name', contact: 'Mobile Number' };
-      return `Profile > Edit > ${labels[activeField] || activeField}`;
+  const handleChange = (field, value) => {
+    setProfile({ ...profile, [field]: value });
+    if (errors[field]) {
+      setErrors({ ...errors, [field]: null });
     }
-    return 'Profile > Edit';
   };
 
-  // === Loading / Access Denied ===
-  if (authLoading || loading) {
+  const validateProfile = () => {
+    const newErrors = {};
+    
+    if (!profile.storeName?.trim()) newErrors.storeName = 'Store name is required';
+    if (!profile.ownerName?.trim()) newErrors.ownerName = 'Owner name is required';
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!profile.email?.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!emailRegex.test(profile.email)) {
+      newErrors.email = 'Invalid email format';
+    }
+    
+    if (!profile.phone) {
+      newErrors.phone = 'Phone is required';
+    } else if (!/^\d{10}$/.test(profile.phone)) {
+      newErrors.phone = 'Phone must be 10 digits';
+    } else if (!['9', '8', '7', '6'].includes(profile.phone[0])) {
+      newErrors.phone = 'Phone must start with 9, 8, 7, or 6';
+    }
+    
+    if (profile.alternatePhone && !/^\d{10}$/.test(profile.alternatePhone)) {
+      newErrors.alternatePhone = 'Alternate phone must be 10 digits';
+    }
+    
+    if (!profile.address?.trim()) newErrors.address = 'Address is required';
+    if (!profile.city?.trim()) newErrors.city = 'City is required';
+    if (!profile.state?.trim()) newErrors.state = 'State is required';
+    
+    if (!profile.pincode) {
+      newErrors.pincode = 'Pincode is required';
+    } else if (!/^\d{6}$/.test(profile.pincode)) {
+      newErrors.pincode = 'Pincode must be 6 digits';
+    }
+    
+    if (profile.gstNumber && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(profile.gstNumber)) {
+      newErrors.gstNumber = 'Invalid GST format';
+    }
+    
+    if (profile.panNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(profile.panNumber)) {
+      newErrors.panNumber = 'Invalid PAN format';
+    }
+    
+    if (profile.accountNumber && !/^\d{9,18}$/.test(profile.accountNumber)) {
+      newErrors.accountNumber = 'Account number must be 9-18 digits';
+    }
+    
+    if (profile.ifscCode && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(profile.ifscCode)) {
+      newErrors.ifscCode = 'Invalid IFSC format';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSave = async () => {
+    if (!validateProfile()) return;
+
+    if (!token) {
+      setError('Authentication token not found');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError(null);
+
+      const updatePayload = {
+        storeName: profile.storeName,
+        ownerName: profile.ownerName,
+        email: profile.email,
+        phone: profile.phone,
+        alternatePhone: profile.alternatePhone || null,
+        address: profile.address,
+        city: profile.city,
+        state: profile.state,
+        pincode: profile.pincode,
+        gstNumber: profile.gstNumber || null,
+        panNumber: profile.panNumber || null,
+        bankName: profile.bankName || null,
+        accountNumber: profile.accountNumber || null,
+        ifscCode: profile.ifscCode || null,
+        branchName: profile.branchName || null
+      };
+
+      const res = await fetch(`${API_BASE}/${storeType}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updatePayload)
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+      
+      const json = await res.json();
+      
+      if (json.success) {
+        setOriginalProfile(profile);
+        setEditing(false);
+        setSuccess(true);
+        setTimeout(() => setSuccess(false), 3000);
+      } else {
+        setError(json.message || 'Failed to update profile');
+      }
+    } catch (e) {
+      console.error('Save profile error:', e);
+      setError(`Failed to save: ${e.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setProfile(originalProfile);
+    setEditing(false);
+    setErrors({});
+    setError(null);
+  };
+
+  if (loading) {
     return (
-      <div className="profile-page d-flex align-items-center justify-content-center" style={{ minHeight: '60vh' }}>
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </div>
+      <div className="loading-container">
+        <Loader className="spinner" size={48} />
+        <p>Loading {storeType} profile...</p>
       </div>
     );
   }
 
-  if (!token || !authUser || !['admin', 'main_admin'].includes(authUser.role)) {
+  if (error && !profile) {
     return (
-      <div className="profile-page p-4">
-        <div className="alert alert-danger">Access denied. Admin login required.</div>
+      <div className="error-card">
+        <AlertCircle className="error-icon" size={48} />
+        <h3>Error Loading Profile</h3>
+        <p>{error}</p>
+        <button onClick={fetchProfile} className="retry-btn">Retry</button>
       </div>
     );
   }
 
-  if (error) {
+  if (!profile) {
     return (
-      <div className="profile-page p-4">
-        <div className="alert alert-danger">{error}</div>
+      <div className="error-card">
+        <AlertCircle className="error-icon" size={48} />
+        <p>No profile data available</p>
       </div>
     );
   }
 
   return (
-    <div className="profile-page">
-      <div className="page-header">
-        <div className="header-content">
-          <div className="header-text">
-            <h2 className="page-title">
-              <i className="bi bi-person-circle me-2"></i>
-              Profile
-            </h2>
-            <div className="profile-breadcrumb">
-              <span className="page-subtitle">{getBreadcrumbText()}</span>
-            </div>
+    <div className={`profile-card ${storeType}`}>
+      <div className="profile-sidebar">
+        {/* Profile photo removed; showing bank details below instead */}
+        <div className="store-name-header">
+          <h2>{profile.storeName}</h2>
+          <p className="store-subtitle">{profile.ownerName}</p>
+        </div>
+        
+        <div className="store-type-badge">
+          {storeType.toUpperCase()} STORE
+        </div>
+
+        <div className="sidebar-section">
+          <h3>Store ID</h3>
+          <p style={{ fontSize: '0.875rem', opacity: 0.9 }}>#{profile.id}</p>
+        </div>
+
+        <div className="sidebar-section">
+          <h3>Bank Details</h3>
+          <div style={{ fontSize: '0.875rem', opacity: 0.95 }}>
+            <p style={{ margin: '0.25rem 0' }}><strong>Bank:</strong> {profile.bankName || 'Not provided'}</p>
+            <p style={{ margin: '0.25rem 0' }}><strong>Account:</strong> {profile.accountNumber || 'Not provided'}</p>
+            <p style={{ margin: '0.25rem 0' }}><strong>IFSC:</strong> {profile.ifscCode || 'Not provided'}</p>
+            <p style={{ margin: '0.25rem 0' }}><strong>Branch:</strong> {profile.branchName || 'Not provided'}</p>
           </div>
         </div>
       </div>
 
-      {saveSuccess && <div className="save-success-msg">Profile saved successfully!</div>}
-
-      <div className="profile-info-section">
-        <div className="profile-layout">
-          {/* === Placeholder Image Section === */}
-          <div className="profile-photo-section">
-            <div className="profile-info">
-              <h2 className="profile-name">{profile.username}</h2>
-            </div>
-            <div className="photo-container">
-              <img
-                src="/profile.webp"
-                alt="Profile"
-                className="profile-photo"
-              />
-            </div>
+      <div className="profile-main">
+        {success && (
+          <div className="success-banner">
+            <Save size={20} />
+            <span>Profile updated successfully!</span>
           </div>
-
-          {/* === Form Fields === */}
-          <div className="profile-content-section">
-            <form className="profile-form" onSubmit={e => e.preventDefault()}>
-              <div className="profile-field">
-                <label>Name</label>
-                <input
-                  type="text"
-                  name="username"
-                  value={profile.username}
-                  onChange={handleChange}
-                  onFocus={() => handleFocus('username')}
-                  onBlur={handleBlur}
-                  disabled={!editing}
-                />
-                {errors.username && <span className="error-text">{errors.username}</span>}
-              </div>
-
-              <div className="profile-field">
-                <label>Email account</label>
-                <input
-                  type="email"
-                  value={profile.email}
-                  disabled
-                />
-              </div>
-
-              <div className="profile-field">
-                <label>Mobile number</label>
-                <input
-                  type="text"
-                  name="contact"
-                  value={profile.contact}
-                  onChange={handleChange}
-                  onFocus={() => handleFocus('contact')}
-                  onBlur={handleBlur}
-                  disabled={!editing}
-                  placeholder="Add number"
-                  maxLength={10}
-                  inputMode="numeric"
-                />
-                {errors.contact && <span className="error-text">{errors.contact}</span>}
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-
-      <div className="profile-actions">
-        {!editing ? (
-          <button type="button" className="profile-edit-btn" onClick={handleEdit}>
-            Edit Profile
-          </button>
-        ) : (
-          <button type="button" className="profile-save-btn" onClick={handleSave} disabled={loading}>
-            {loading ? 'Saving...' : 'Save'}
-          </button>
         )}
+
+        {error && (
+          <div className="error-banner">
+            <AlertCircle size={20} />
+            <span>{error}</span>
+            <button onClick={() => setError(null)} className="close-error">
+              <X size={16} />
+            </button>
+          </div>
+        )}
+
+        <div className="profile-header">
+          <div className="profile-title">
+            <h1>{profile.storeName}</h1>
+            <p className="profile-subtitle">{storeType === 'swasthik' ? 'Swasthik Bookstore' : 'Laxmi Bookstore'}</p>
+          </div>
+          {!editing ? (
+            <button onClick={() => setEditing(true)} className="edit-profile-btn">
+              <Edit2 size={18} />
+              Edit Profile
+            </button>
+          ) : (
+            <div className="action-buttons">
+              <button onClick={handleCancel} className="cancel-profile-btn" disabled={saving}>
+                <X size={18} />
+                Cancel
+              </button>
+              <button onClick={handleSave} className="save-profile-btn" disabled={saving}>
+                {saving ? <Loader className="spinner-small" /> : <Save size={18} />}
+                Save Changes
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="profile-tabs">
+          <div 
+            className={`tab ${activeTab === 'about' ? 'active' : ''}`}
+            onClick={() => setActiveTab('about')}
+          >
+            About
+          </div>
+          <div 
+            className={`tab ${activeTab === 'timeline' ? 'active' : ''}`}
+            onClick={() => setActiveTab('timeline')}
+          >
+            Timeline
+          </div>
+        </div>
+
+        <div className="profile-content">
+          {activeTab === 'about' && (
+            <div className="info-grid">
+              <div className="info-item">
+                <div className="info-label">
+                  <Building2 size={16} />
+                  Store Name
+                </div>
+                <div className="info-value">
+                  {editing ? (
+                    <>
+                      <input
+                        type="text"
+                        value={profile.storeName || ''}
+                        onChange={(e) => handleChange('storeName', e.target.value)}
+                        className={errors.storeName ? 'input-error' : ''}
+                      />
+                      {errors.storeName && <span className="error-text">{errors.storeName}</span>}
+                    </>
+                  ) : (
+                    profile.storeName
+                  )}
+                </div>
+              </div>
+
+              <div className="info-item">
+                <div className="info-label">Owner Name</div>
+                <div className="info-value">
+                  {editing ? (
+                    <>
+                      <input
+                        type="text"
+                        value={profile.ownerName || ''}
+                        onChange={(e) => handleChange('ownerName', e.target.value)}
+                        className={errors.ownerName ? 'input-error' : ''}
+                      />
+                      {errors.ownerName && <span className="error-text">{errors.ownerName}</span>}
+                    </>
+                  ) : (
+                    profile.ownerName
+                  )}
+                </div>
+              </div>
+
+              <div className="info-item">
+                <div className="info-label">
+                  <Mail size={16} />
+                  Email
+                </div>
+                <div className="info-value">
+                  {editing ? (
+                    <>
+                      <input
+                        type="email"
+                        value={profile.email || ''}
+                        onChange={(e) => handleChange('email', e.target.value)}
+                        className={errors.email ? 'input-error' : ''}
+                      />
+                      {errors.email && <span className="error-text">{errors.email}</span>}
+                    </>
+                  ) : (
+                    profile.email
+                  )}
+                </div>
+              </div>
+
+              <div className="info-item">
+                <div className="info-label">
+                  <Phone size={16} />
+                  Phone
+                </div>
+                <div className="info-value">
+                  {editing ? (
+                    <>
+                      <input
+                        type="tel"
+                        value={profile.phone || ''}
+                        onChange={(e) => {
+                          if (/^\d{0,10}$/.test(e.target.value)) {
+                            handleChange('phone', e.target.value);
+                          }
+                        }}
+                        maxLength={10}
+                        className={errors.phone ? 'input-error' : ''}
+                      />
+                      {errors.phone && <span className="error-text">{errors.phone}</span>}
+                    </>
+                  ) : (
+                    profile.phone
+                  )}
+                </div>
+              </div>
+
+              <div className="info-item">
+                <div className="info-label">Alternate Phone</div>
+                <div className="info-value">
+                  {editing ? (
+                    <>
+                      <input
+                        type="tel"
+                        value={profile.alternatePhone || ''}
+                        onChange={(e) => {
+                          if (/^\d{0,10}$/.test(e.target.value)) {
+                            handleChange('alternatePhone', e.target.value);
+                          }
+                        }}
+                        maxLength={10}
+                        placeholder="Optional"
+                        className={errors.alternatePhone ? 'input-error' : ''}
+                      />
+                      {errors.alternatePhone && <span className="error-text">{errors.alternatePhone}</span>}
+                    </>
+                  ) : (
+                    profile.alternatePhone || 'Not provided'
+                  )}
+                </div>
+              </div>
+
+              <div className="info-item full-width">
+                <div className="info-label">
+                  <MapPin size={16} />
+                  Address
+                </div>
+                <div className="info-value">
+                  {editing ? (
+                    <>
+                      <textarea
+                        value={profile.address || ''}
+                        onChange={(e) => handleChange('address', e.target.value)}
+                        className={errors.address ? 'input-error' : ''}
+                      />
+                      {errors.address && <span className="error-text">{errors.address}</span>}
+                    </>
+                  ) : (
+                    profile.address
+                  )}
+                </div>
+              </div>
+
+              <div className="info-item">
+                <div className="info-label">City</div>
+                <div className="info-value">
+                  {editing ? (
+                    <>
+                      <input
+                        type="text"
+                        value={profile.city || ''}
+                        onChange={(e) => handleChange('city', e.target.value)}
+                        className={errors.city ? 'input-error' : ''}
+                      />
+                      {errors.city && <span className="error-text">{errors.city}</span>}
+                    </>
+                  ) : (
+                    profile.city
+                  )}
+                </div>
+              </div>
+
+              <div className="info-item">
+                <div className="info-label">State</div>
+                <div className="info-value">
+                  {editing ? (
+                    <>
+                      <input
+                        type="text"
+                        value={profile.state || ''}
+                        onChange={(e) => handleChange('state', e.target.value)}
+                        className={errors.state ? 'input-error' : ''}
+                      />
+                      {errors.state && <span className="error-text">{errors.state}</span>}
+                    </>
+                  ) : (
+                    profile.state
+                  )}
+                </div>
+              </div>
+
+              <div className="info-item">
+                <div className="info-label">Pincode</div>
+                <div className="info-value">
+                  {editing ? (
+                    <>
+                      <input
+                        type="text"
+                        value={profile.pincode || ''}
+                        onChange={(e) => {
+                          if (/^\d{0,6}$/.test(e.target.value)) {
+                            handleChange('pincode', e.target.value);
+                          }
+                        }}
+                        maxLength={6}
+                        className={errors.pincode ? 'input-error' : ''}
+                      />
+                      {errors.pincode && <span className="error-text">{errors.pincode}</span>}
+                    </>
+                  ) : (
+                    profile.pincode
+                  )}
+                </div>
+              </div>
+
+              <div className="info-item">
+                <div className="info-label">
+                  <CreditCard size={16} />
+                  GST Number
+                </div>
+                <div className="info-value">
+                  {editing ? (
+                    <>
+                      <input
+                        type="text"
+                        value={profile.gstNumber || ''}
+                        onChange={(e) => handleChange('gstNumber', e.target.value.toUpperCase())}
+                        placeholder="22AAAAA0000A1Z5"
+                        maxLength={15}
+                        className={errors.gstNumber ? 'input-error' : ''}
+                      />
+                      {errors.gstNumber && <span className="error-text">{errors.gstNumber}</span>}
+                    </>
+                  ) : (
+                    profile.gstNumber || 'Not provided'
+                  )}
+                </div>
+              </div>
+
+              <div className="info-item">
+                <div className="info-label">PAN Number</div>
+                <div className="info-value">
+                  {editing ? (
+                    <>
+                      <input
+                        type="text"
+                        value={profile.panNumber || ''}
+                        onChange={(e) => handleChange('panNumber', e.target.value.toUpperCase())}
+                        placeholder="ABCDE1234F"
+                        maxLength={10}
+                        className={errors.panNumber ? 'input-error' : ''}
+                      />
+                      {errors.panNumber && <span className="error-text">{errors.panNumber}</span>}
+                    </>
+                  ) : (
+                    profile.panNumber || 'Not provided'
+                  )}
+                </div>
+              </div>
+
+              <div className="info-item">
+                <div className="info-label">
+                  <Building size={16} />
+                  Bank Name
+                </div>
+                <div className="info-value">
+                  {editing ? (
+                    <input
+                      type="text"
+                      value={profile.bankName || ''}
+                      onChange={(e) => handleChange('bankName', e.target.value)}
+                    />
+                  ) : (
+                    profile.bankName || 'Not provided'
+                  )}
+                </div>
+              </div>
+
+              <div className="info-item">
+                <div className="info-label">Account Number</div>
+                <div className="info-value">
+                  {editing ? (
+                    <>
+                      <input
+                        type="text"
+                        value={profile.accountNumber || ''}
+                        onChange={(e) => {
+                          if (/^\d{0,18}$/.test(e.target.value)) {
+                            handleChange('accountNumber', e.target.value);
+                          }
+                        }}
+                        className={errors.accountNumber ? 'input-error' : ''}
+                      />
+                      {errors.accountNumber && <span className="error-text">{errors.accountNumber}</span>}
+                    </>
+                  ) : (
+                    profile.accountNumber || 'Not provided'
+                  )}
+                </div>
+              </div>
+
+              <div className="info-item">
+                <div className="info-label">IFSC Code</div>
+                <div className="info-value">
+                  {editing ? (
+                    <>
+                      <input
+                        type="text"
+                        value={profile.ifscCode || ''}
+                        onChange={(e) => handleChange('ifscCode', e.target.value.toUpperCase())}
+                        placeholder="SBIN0001234"
+                        maxLength={11}
+                        className={errors.ifscCode ? 'input-error' : ''}
+                      />
+                      {errors.ifscCode && <span className="error-text">{errors.ifscCode}</span>}
+                    </>
+                  ) : (
+                    profile.ifscCode || 'Not provided'
+                  )}
+                </div>
+              </div>
+
+              <div className="info-item">
+                <div className="info-label">Branch Name</div>
+                <div className="info-value">
+                  {editing ? (
+                    <input
+                      type="text"
+                      value={profile.branchName || ''}
+                      onChange={(e) => handleChange('branchName', e.target.value)}
+                    />
+                  ) : (
+                    profile.branchName || 'Not provided'
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'timeline' && (
+            <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>
+              <p>Timeline feature coming soon...</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
-}
+};
 
-export default Profile;
+const DualStoreProfile = () => {
+  const { user, loading: authLoading } = useAuth();
+
+  if (authLoading) {
+    return (
+      <div className="store-container">
+        <div className="loading-container">
+          <Loader className="spinner" size={48} />
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || !['admin', 'main_admin'].includes(user.role)) {
+    return (
+      <div className="store-container">
+        <div className="alert alert-danger">
+          <AlertCircle size={32} />
+          <div>
+            <h3>Access Denied</h3>
+            <p>Admin login required to view store profiles.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="store-container">
+      <div className="page-header">
+        <h1>Store Profiles</h1>
+        <p>Manage your store information and settings</p>
+      </div>
+
+      <div className="profiles-grid">
+        <StoreProfileCard storeType="swasthik" />
+        <StoreProfileCard storeType="laxmi" />
+      </div>
+    </div>
+  );
+};
+
+export default DualStoreProfile;

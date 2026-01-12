@@ -1,673 +1,690 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import React, { useState, useEffect } from 'react';
+import { 
+  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
+} from 'recharts';
 import './Dashboard.css';
+
+// You'll need to import your auth context
 import { useAuth } from '../../context/AuthContext';
 
 function Dashboard() {
+  // If you have authentication, uncomment this
   const { token } = useAuth();
-  const [timeFilter, setTimeFilter] = useState('7days');
-  const [soldCoursesMonth, setSoldCoursesMonth] = useState('December');
-  const [showMonthPicker, setShowMonthPicker] = useState(false);
-  const [selectedYear, setSelectedYear] = useState('2025');
-  const [showYearPicker, setShowYearPicker] = useState(false);
-  const [activePieIndex, setActivePieIndex] = useState(null);
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
-  const [soldCoursesDisplayCount, setSoldCoursesDisplayCount] = useState('10');
-  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
+  
+  // For now, we'll assume token is available or handle it differently
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
-  const monthPickerRef = useRef(null);
-  const categoryPickerRef = useRef(null);
-  const yearPickerRef = useRef(null);
-
-  const [overview, setOverview] = useState({
-    totalRevenue: { amount: 0, percentageChange: 0, trend: 'up' },
-    totalRegistrations: { count: 0, percentageChange: 0, trend: 'up' },
-    totalCourses: { count: 0, percentageChange: 0, trend: 'up' },
+  // Dashboard state
+  const [dashboardData, setDashboardData] = useState({
+    overview: {
+      totalBills: { count: 0, amount: '0.00' },
+      todayBills: { count: 0, amount: '0.00' },
+      weekBills: { count: 0, amount: '0.00' },
+      monthBills: { count: 0, amount: '0.00' }
+    },
+    billsByCategory: [],
+    billsBySubCategory: [],
+    lastFiveBills: [],
+    topProducts: [],
+    topAttributes: [],
+    paymentModeStats: [],
+    revenueTrend: [],
+    gstSummary: {
+      totalSubtotal: '0.00',
+      totalCGST: '0.00',
+      totalSGST: '0.00',
+      totalGST: '0.00'
+    },
+    lowStockProducts: [],
+    lowStockAttributes: []
   });
-  const [revenueChartData, setRevenueChartData] = useState([]);
-  const [availableYears, setAvailableYears] = useState(['2025']);
-  const [soldCoursesData, setSoldCoursesData] = useState({});
-  const [courseCategoryData, setCourseCategoryData] = useState([]);
-  const [lessonDistributionData, setLessonDistributionData] = useState({});
-  const [categories, setCategories] = useState([{ value: 'all', label: 'All Categories' }]);
-  const [availableMonths, setAvailableMonths] = useState(['December']);
-  const [totalSubscribedUsers, setTotalSubscribedUsers] = useState(0);
 
+  // Chart colors
+  const COLORS = ['#4f46e5', '#ec4899', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#84cc16'];
+
+  // Fetch dashboard data
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Update the URL with your actual API endpoint
+      const response = await fetch('http://13.232.200.172/api/dashboard', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          // If you need authentication, add token here
+          'Authorization': `Bearer ${token}`
+        },
+        // credentials: 'include' // For session-based auth
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        setDashboardData(result.data);
+        setLastUpdated(new Date());
+      } else {
+        throw new Error('Invalid data format received');
+      }
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      setError(err.message || 'Failed to fetch dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load data on component mount
   useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    fetchDashboardData();
   }, []);
 
-  // Close dropdowns when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (monthPickerRef.current && !monthPickerRef.current.contains(event.target)) {
-        setShowMonthPicker(false);
-      }
-      if (categoryPickerRef.current && !categoryPickerRef.current.contains(event.target)) {
-        setShowCategoryPicker(false);
-      }
-      if (yearPickerRef.current && !yearPickerRef.current.contains(event.target)) {
-        setShowYearPicker(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
-  // Fetch API data
-  useEffect(() => {
-    if (token) {
-      const fetchData = async () => {
-        try {
-          const response = await fetch('https://api.hearingzen.in/api/analytics/dashboard', {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-          const res = await response.json();
-          if (res.success) {
-            const data = res.data;
-            
-            // Set overview data
-            setOverview(data.overview);
-            
-            // Set revenue chart data
-            setRevenueChartData(data.revenueOverview.chartData);
-            
-            // Extract available years from revenue data
-            const years = [...new Set(data.revenueOverview.chartData.map(d => d.year.toString()))].sort((a, b) => a - b);
-            setAvailableYears(years);
-            if (!years.includes(selectedYear)) {
-              setSelectedYear(years[years.length - 1]);
-            }
-            
-            // Set sold courses data
-            setSoldCoursesData(data.soldCoursesData);
-            
-            // Set available months from sold courses data
-            const months = Object.keys(data.soldCoursesData).filter(key => data.soldCoursesData[key].length > 0);
-            setAvailableMonths(months);
-            if (months.length > 0 && !months.includes(soldCoursesMonth)) {
-              setSoldCoursesMonth(months[months.length - 1]);
-            }
-            
-            // Set course category data
-            setCourseCategoryData(data.courseCategoryData);
-            
-            // Set lesson distribution data
-            setLessonDistributionData(data.lessonDistributionData);
-            
-            // Build categories list from API data
-            const apiCategories = data.categories.map(cat => ({
-              value: cat.id,
-              label: cat.name
-            }));
-            setCategories([{ value: 'all', label: 'All Categories' }, ...apiCategories]);
-            
-            // Calculate total subscribed users from lesson distribution
-            let totalSubs = 0;
-            Object.values(data.lessonDistributionData).forEach(categoryLessons => {
-              categoryLessons.forEach(lesson => {
-                totalSubs += lesson.subscribers || 0;
-              });
-            });
-            setTotalSubscribedUsers(totalSubs);
-            
-          }
-        } catch (error) {
-          console.error('Error fetching dashboard data:', error);
-        }
-      };
-      fetchData();
-    }
-  }, [token]);
-
-  const getFormattedRevenueData = () => {
-    return revenueChartData
-      .filter(item => item.year === parseInt(selectedYear))
-      .map(item => ({
-        month: item.month,
-        revenue: item.revenue
-      }));
+  // Refresh handler
+  const handleRefresh = () => {
+    fetchDashboardData();
   };
 
-  const getCurrentPieData = () => {
-    if (selectedCategory === 'all') {
-      return courseCategoryData;
-    }
-    
-    // Find the category data by ID
-    const categoryData = lessonDistributionData[selectedCategory];
-    if (categoryData) {
-      return categoryData;
-    }
-    
-    // Fallback: try to find by name
-    const categoryName = categories.find(cat => cat.value === selectedCategory)?.label;
-    if (categoryName && lessonDistributionData[categoryName]) {
-      return lessonDistributionData[categoryName];
-    }
-    
-    return [];
+  // Format currency
+  const formatCurrency = (amount) => {
+    return `₹${parseFloat(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const getChartSubtitle = () => {
-    if (selectedCategory === 'all') {
-      return 'By category';
-    }
-    const categoryLabel = categories.find(cat => cat.value === selectedCategory)?.label;
-    return `Lessons in ${categoryLabel || selectedCategory}`;
+  // Format date
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-IN', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
-  const getSoldCoursesData = () => {
-    const data = soldCoursesData[soldCoursesMonth] || [];
-    if (soldCoursesDisplayCount === 'all') {
-      return data;
-    }
-    return data.slice(0, parseInt(soldCoursesDisplayCount));
+  // Get stock status class
+  const getStockStatusClass = (stock) => {
+    if (stock === 0) return 'stock-out';
+    if (stock < 5) return 'stock-critical';
+    if (stock < 10) return 'stock-low';
+    return 'stock-normal';
   };
 
-  const handlePieClick = (entry, index) => {
-    setActivePieIndex(activePieIndex === index ? null : index);
-  };
+  if (loading) {
+    return (
+      <div className="dashboard-container">
+        <div className="loading-overlay">
+          <div className="spinner"></div>
+          <p>Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
 
-  const handleChartClick = (e) => {
-    const clickedElement = e.target;
-    const isWrapper = clickedElement.classList.contains('recharts-wrapper') || 
-                      clickedElement.classList.contains('recharts-surface') ||
-                      clickedElement.tagName === 'svg';
-    
-    if (isWrapper) {
-      setActivePieIndex(null);
-    }
-  };
+  if (error) {
+    return (
+      <div className="dashboard-container">
+        <div className="error-container">
+          <div className="error-message">
+            <i className="bi bi-exclamation-circle"></i>
+            <span>{error}</span>
+            <button className="retry-btn" onClick={handleRefresh}>
+              <i className="bi bi-arrow-clockwise"></i> Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const { overview, billsByCategory, billsBySubCategory, lastFiveBills, topProducts, 
+          topAttributes, paymentModeStats, revenueTrend, gstSummary, 
+          lowStockProducts, lowStockAttributes } = dashboardData;
 
   return (
-    <div className="dashboard-container" onClick={(e) => {
-      const pieChartWrapper = e.target.closest('.pie-chart');
-      if (!pieChartWrapper) {
-        setActivePieIndex(null);
-      }
-    }}>
+    <div className="dashboard-container">
+      {/* Header */}
       <div className="page-header">
         <div className="header-content">
           <div className="header-text">
-            <h2 className="page-title">
-              <i className="bi bi-speedometer2 me-2"></i>
-              Dashboard Overview
-            </h2>
-            <p className="page-subtitle">Welcome back! Here's a quick snapshot of your LMS activity today.</p>
+            <h1 className="page-title">
+              <i className="bi bi-speedometer2"></i>
+              Inventory Dashboard
+            </h1>
+            <p className="page-subtitle">Real-time analytics and insights</p>
+          </div>
+          <div className="header-stats">
+            <button className="refresh-btn" onClick={handleRefresh}>
+              <i className="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+            {lastUpdated && (
+              <div className="last-updated">
+                Last updated: {lastUpdated.toLocaleTimeString()}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
+      {/* Overview Stats Cards */}
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-card-content">
             <div className="stat-card-header">
               <div>
-                <p className="stat-label">Total Revenue</p>
-                <h3 className="stat-value">₹{overview.totalRevenue.amount.toLocaleString()}</h3>
+                <div className="stat-label">Today's Bills</div>
+                <div className="stat-value">{overview.todayBills.count}</div>
               </div>
               <div className="stat-icon revenue-icon">
-                <i className="bi bi-currency-rupee"></i>
+                <i className="bi bi-calendar-day"></i>
               </div>
             </div>
             <div className="stat-footer">
-              <span className={`badge-${overview.totalRevenue.trend === 'up' ? 'success' : 'danger'}`}>
-                <i className={`bi bi-arrow-${overview.totalRevenue.trend}`}></i>{overview.totalRevenue.percentageChange}%
-              </span>
-              <span className="stat-comparison">vs last month</span>
+              <span className="stat-amount">{formatCurrency(overview.todayBills.amount)}</span>
             </div>
           </div>
         </div>
+
         <div className="stat-card">
           <div className="stat-card-content">
             <div className="stat-card-header">
               <div>
-                <p className="stat-label">Total Registrations</p>
-                <h3 className="stat-value">{overview.totalRegistrations.count.toLocaleString()}</h3>
+                <div className="stat-label">This Week</div>
+                <div className="stat-value">{overview.weekBills.count}</div>
               </div>
               <div className="stat-icon registration-icon">
-                <i className="bi bi-people"></i>
+                <i className="bi bi-calendar-week"></i>
               </div>
             </div>
             <div className="stat-footer">
-              <span className={`badge-${overview.totalRegistrations.trend === 'up' ? 'success' : 'danger'}`}>
-                <i className={`bi bi-arrow-${overview.totalRegistrations.trend}`}></i>{overview.totalRegistrations.percentageChange}%
-              </span>
-              <span className="stat-comparison">vs last month</span>
+              <span className="stat-amount">{formatCurrency(overview.weekBills.amount)}</span>
             </div>
           </div>
         </div>
+
         <div className="stat-card">
           <div className="stat-card-content">
             <div className="stat-card-header">
               <div>
-                <p className="stat-label">Total Courses</p>
-                <h3 className="stat-value">{overview.totalCourses.count.toLocaleString()}</h3>
+                <div className="stat-label">This Month</div>
+                <div className="stat-value">{overview.monthBills.count}</div>
               </div>
               <div className="stat-icon courses-icon">
-                <i className="bi bi-book"></i>
+                <i className="bi bi-calendar-month"></i>
               </div>
             </div>
             <div className="stat-footer">
-              <span className={`badge-${overview.totalCourses.trend === 'up' ? 'success' : 'danger'}`}>
-                <i className={`bi bi-arrow-${overview.totalCourses.trend}`}></i>{overview.totalCourses.percentageChange}%
-              </span>
-              <span className="stat-comparison">vs last month</span>
+              <span className="stat-amount">{formatCurrency(overview.monthBills.amount)}</span>
             </div>
           </div>
         </div>
-        {/* <div className="stat-card">
+
+        <div className="stat-card">
           <div className="stat-card-content">
             <div className="stat-card-header">
               <div>
-                <p className="stat-label">Total Subscribed Users</p>
-                <h3 className="stat-value">{totalSubscribedUsers.toLocaleString()}</h3>
+                <div className="stat-label">Total Bills</div>
+                <div className="stat-value">{overview.totalBills.count}</div>
               </div>
               <div className="stat-icon rate-icon">
-                <i className="bi bi-graph-up-arrow"></i>
+                <i className="bi bi-receipt"></i>
               </div>
             </div>
             <div className="stat-footer">
-              <span className="badge-success">
-                <i className="bi bi-arrow-up"></i>+ 0
-              </span>
-              <span className="stat-comparison">vs last month</span>
+              <span className="stat-amount">{formatCurrency(overview.totalBills.amount)}</span>
             </div>
           </div>
-        </div> */}
+        </div>
       </div>
 
+      {/* GST Summary */}
+      <div className="gst-summary-section">
+        <h2 className="section-title">
+          <i className="bi bi-calculator"></i> GST Summary
+        </h2>
+        <div className="gst-cards-grid">
+          <div className="gst-card">
+            <div className="gst-label">Subtotal</div>
+            <div className="gst-value">{formatCurrency(gstSummary.totalSubtotal)}</div>
+          </div>
+          <div className="gst-card">
+            <div className="gst-label">CGST</div>
+            <div className="gst-value">{formatCurrency(gstSummary.totalCGST)}</div>
+          </div>
+          <div className="gst-card">
+            <div className="gst-label">SGST</div>
+            <div className="gst-value">{formatCurrency(gstSummary.totalSGST)}</div>
+          </div>
+          <div className="gst-card gst-total">
+            <div className="gst-label">Total GST</div>
+            <div className="gst-value">{formatCurrency(gstSummary.totalGST)}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Charts Section */}
       <div className="charts-grid">
-        <div className="chart-card revenue-chart">
-          <div className="chart-header">
-            <div className="chart-header-text">
-              <h5 className="chart-title">Revenue Overview</h5>
-              <p className="chart-subtitle">Monthly revenue for {selectedYear}</p>
-            </div>
-            <div className="year-selector-container" ref={yearPickerRef}>
-              <button 
-                className="year-selector-btn"
-                onClick={() => setShowYearPicker(!showYearPicker)}
-              >
-                <i className="bi bi-calendar3"></i>
-                <span>{selectedYear}</span>
-                <i className={`bi bi-chevron-${showYearPicker ? 'up' : 'down'}`}></i>
-              </button>
-              {showYearPicker && (
-                <div className="year-dropdown">
-                  {availableYears.map(year => (
-                    <button
-                      key={year}
-                      className={`year-option ${year === selectedYear ? 'active' : ''}`}
-                      onClick={() => {
-                        setSelectedYear(year);
-                        setShowYearPicker(false);
-                      }}
-                    >
-                      {year}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="chart-wrapper revenue-chart-wrapper">
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={getFormattedRevenueData()} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
-                <defs>
-                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis 
-                  dataKey="month" 
-                  stroke="#94a3b8" 
-                  style={{ fontSize: '10px' }} 
-                  interval={0}
-                  angle={-45}
-                  textAnchor="end"
-                  height={60}
-                />
-                <YAxis 
-                  stroke="#94a3b8" 
-                  style={{ fontSize: '12px' }}
-                  width={45}
-                />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
-                />
-                <Area type="monotone" dataKey="revenue" stroke="#2563eb" strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-        <div className="chart-card pie-chart" onClick={(e) => e.stopPropagation()}>
-          <div className="chart-header">
-            <div className="chart-header-text">
-              <h5 className="chart-title">Course Distribution</h5>
-              <p className="chart-subtitle">{getChartSubtitle()}</p>
-            </div>
-            <div className="category-selector-container" ref={categoryPickerRef}>
-              <button 
-                className="category-selector-btn"
-                onClick={() => setShowCategoryPicker(!showCategoryPicker)}
-              >
-                <i className="bi bi-funnel"></i>
-                <span>{categories.find(cat => cat.value === selectedCategory)?.label}</span>
-                <i className={`bi bi-chevron-${showCategoryPicker ? 'up' : 'down'}`}></i>
-              </button>
-              {showCategoryPicker && (
-                <div className="category-dropdown">
-                  {categories.map(category => (
-                    <button
-                      key={category.value}
-                      className={`category-option ${category.value === selectedCategory ? 'active' : ''}`}
-                      onClick={() => {
-                        setSelectedCategory(category.value);
-                        setShowCategoryPicker(false);
-                        setActivePieIndex(null);
-                      }}
-                    >
-                      {category.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="chart-wrapper" onClick={handleChartClick} style={{ position: 'relative' }}>
-            <ResponsiveContainer width="100%" height={250}>
-              <PieChart onClick={(e) => {
-                if (e && e.target && e.target.tagName === 'svg') {
-                  setActivePieIndex(null);
-                }
-              }}>
-                <Pie
-                  data={getCurrentPieData()}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={90}
-                  paddingAngle={5}
-                  dataKey="value"
-                  label={({ name, value }) => `${value}`}
-                  labelLine={{ stroke: '#94a3b8', strokeDasharray: '3 3', strokeWidth: 1 }}
-                  animationBegin={0}
-                  animationDuration={400}
-                  isAnimationActive={true}
-                >
-                  {getCurrentPieData().map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={entry.color} 
-                      opacity={activePieIndex === null ? 1 : activePieIndex === index ? 1 : 0.3}
-                      stroke="none"
-                      style={{ cursor: 'pointer', outline: 'none' }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePieClick(entry, index);
-                      }}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const data = payload[0].payload;
-                      
-                      if (selectedCategory !== 'all' && data.author && data.subscribers !== undefined) {
-                        return (
-                          <div style={{
-                            background: 'white',
-                            padding: '12px 16px',
-                            borderRadius: '8px',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                            border: '1px solid #e2e8f0'
-                          }}>
-                            <p style={{
-                              margin: '0 0 8px 0',
-                              fontWeight: '600',
-                              fontSize: '14px',
-                              color: '#1e293b'
-                            }}>
-                              {data.name}
-                            </p>
-                            <div style={{
-                              borderTop: '1px solid #e2e8f0',
-                              paddingTop: '8px'
-                            }}>
-                              <div style={{
-                                margin: '0 0 4px 0',
-                                fontSize: '13px',
-                                color: '#64748b',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px'
-                              }}>
-                                <span style={{ fontWeight: '500', color: '#475569' }}>Lessons:</span>
-                                <span style={{ fontWeight: '600', color: '#1e293b' }}>{data.value}</span>
-                              </div>
-                              <div style={{
-                                margin: '0 0 4px 0',
-                                fontSize: '13px',
-                                color: '#64748b',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px'
-                              }}>
-                                <span style={{ fontWeight: '500', color: '#475569' }}>Author:</span>
-                                <span style={{ fontWeight: '600', color: '#1e293b' }}>{data.author}</span>
-                              </div>
-                              <div style={{
-                                margin: '0',
-                                fontSize: '13px',
-                                color: '#64748b',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px'
-                              }}>
-                                <span style={{ fontWeight: '500', color: '#475569' }}>Subscribers:</span>
-                                <span style={{ 
-                                  fontWeight: '600', 
-                                  color: '#16a34a',
-                                  background: '#dcfce7',
-                                  padding: '2px 8px',
-                                  borderRadius: '4px'
-                                }}>
-                                  {data.subscribers.toLocaleString()}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      }
-                      
-                      return (
-                        <div style={{
-                          background: 'white',
-                          padding: '10px 14px',
-                          borderRadius: '8px',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                          border: '1px solid #e2e8f0'
-                        }}>
-                          <p style={{
-                            margin: '0',
-                            fontWeight: '600',
-                            fontSize: '14px',
-                            color: '#1e293b'
-                          }}>
-                            {data.name}: {data.value}
-                          </p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="pie-legend">
-            {getCurrentPieData().map((item, index) => (
-              <div key={index} className="pie-legend-item">
-                <div className="pie-legend-left">
-                  <div
-                    className="pie-legend-color"
-                    style={{ backgroundColor: item.color }}
-                  ></div>
-                  <span>{item.name}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="registration-chart-container">
+        {/* Revenue Trend Chart */}
         <div className="chart-card">
           <div className="chart-header">
             <div className="chart-header-text">
-              <h5 className="chart-title">Top Sold Courses</h5>
-              <p className="chart-subtitle">
-                Courses sold in {soldCoursesMonth} 
-                {soldCoursesDisplayCount === 'all' 
-                  ? ' (All Courses)' 
-                  : ` (Top ${soldCoursesDisplayCount})`}
-              </p>
-            </div>
-            <div className="registration-filter-container">
-              <select 
-                className="form-select registration-time-filter sold-courses-filter"
-                value={soldCoursesDisplayCount}
-                onChange={(e) => setSoldCoursesDisplayCount(e.target.value)}
-              >
-                <option value="5">Top 5</option>
-                <option value="10">Top 10</option>
-                <option value="15">Top 15</option>
-                <option value="all">All Courses</option>
-              </select>
-              <div className="year-selector-container" ref={monthPickerRef}>
-                <button 
-                  className="year-selector-btn month-selector-btn"
-                  onClick={() => setShowMonthPicker(!showMonthPicker)}
-                >
-                  <i className="bi bi-calendar-month"></i>
-                  <span>{soldCoursesMonth}</span>
-                  <i className={`bi bi-chevron-${showMonthPicker ? 'up' : 'down'}`}></i>
-                </button>
-                {showMonthPicker && (
-                  <div className="year-dropdown month-dropdown">
-                    {availableMonths.map(month => (
-                      <button
-                        key={month}
-                        className={`year-option ${month === soldCoursesMonth ? 'active' : ''}`}
-                        onClick={() => {
-                          setSoldCoursesMonth(month);
-                          setShowMonthPicker(false);
-                        }}
-                      >
-                        {month}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <h5 className="chart-title">Revenue Trend (Last 7 Days)</h5>
+              <p className="chart-subtitle">Daily revenue and bill count</p>
             </div>
           </div>
-          <div className="chart-wrapper registration-chart-wrapper sold-courses-chart-wrapper">
-            <ResponsiveContainer width="100%" height={Math.max(350, (soldCoursesDisplayCount === 'all' ? getSoldCoursesData().length : parseInt(soldCoursesDisplayCount)) * 40)}>
-              <BarChart 
-                data={getSoldCoursesData()} 
-                layout="vertical"
-                margin={{ top: 10, right: 20, left: windowWidth < 768 ? 0 : 20, bottom: 10 }}
-              >
+          <div className="chart-wrapper">
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={revenueTrend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis 
-                  type="number"
-                  stroke="#94a3b8" 
-                  style={{ fontSize: windowWidth < 768 ? '10px' : '12px' }}
+                  dataKey="date" 
+                  stroke="#94a3b8"
+                  style={{ fontSize: '12px' }}
                 />
-                <YAxis 
-                  type="category"
-                  dataKey="courseName" 
-                  stroke="#94a3b8" 
-                  width={windowWidth < 768 ? 105 : 170}
-                  interval={0}
-                  tick={(props) => {
-                    const { x, y, payload } = props;
-                    const isMobile = windowWidth < 768;
-                    const maxLength = isMobile ? 13 : 20;
-                    const text = payload.value.length > maxLength 
-                      ? payload.value.substring(0, maxLength) + '...' 
-                      : payload.value;
-                    return (
-                      <text 
-                        x={isMobile ? x - 2 : x - 10} 
-                        y={y} 
-                        textAnchor="end" 
-                        fill="#94a3b8" 
-                        fontSize={isMobile ? '8px' : '10px'}
-                        dy={4}
-                      >
-                        {text}
-                      </text>
-                    );
-                  }}
-                />
+                <YAxis stroke="#94a3b8" style={{ fontSize: '12px' }} />
                 <Tooltip 
                   contentStyle={{ 
                     borderRadius: '8px', 
                     border: 'none', 
                     boxShadow: '0 4px 6px rgba(0,0,0,0.1)' 
                   }}
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const data = payload[0].payload;
-                      return (
-                        <div className="sold-courses-tooltip">
-                          <p className="sold-courses-tooltip-title">
-                            {data.courseName}
-                          </p>
-                          <div className="sold-courses-tooltip-content">
-                            <div className="sold-courses-tooltip-item">
-                              <span className="sold-courses-tooltip-label">Sold:</span>
-                              <span className="sold-courses-tooltip-value">{data.sold} courses</span>
-                            </div>
-                            <div className="sold-courses-tooltip-item">
-                              <span className="sold-courses-tooltip-label">Revenue:</span>
-                              <span className="sold-courses-tooltip-revenue">
-                                ₹{data.revenue.toLocaleString()}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      );
+                  formatter={(value, name) => {
+                    if (name === 'grandTotal' || name === 'subtotal' || name === 'totalGST') {
+                      return [formatCurrency(value), name === 'grandTotal' ? 'Grand Total' : name === 'subtotal' ? 'Subtotal' : 'GST'];
                     }
-                    return null;
+                    return [value, 'Bills'];
                   }}
                 />
-                <Bar 
-                  dataKey="sold" 
-                  fill="#4f46e5"
-                  radius={[0, 8, 8, 0]}
-                  animationDuration={800}
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="grandTotal" 
+                  stroke="#4f46e5" 
+                  strokeWidth={2}
+                  dot={{ fill: '#4f46e5', r: 4 }}
+                  name="Grand Total"
                 />
-              </BarChart>
+                <Line 
+                  type="monotone" 
+                  dataKey="billCount" 
+                  stroke="#10b981" 
+                  strokeWidth={2}
+                  dot={{ fill: '#10b981', r: 4 }}
+                  name="Bill Count"
+                />
+              </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
+
+        {/* Payment Mode Distribution */}
+        <div className="chart-card pie-chart">
+          <div className="chart-header">
+            <div className="chart-header-text">
+              <h5 className="chart-title">Payment Methods</h5>
+              <p className="chart-subtitle">Distribution by payment mode</p>
+            </div>
+          </div>
+          <div className="chart-wrapper">
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={paymentModeStats}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ paymentMode, count }) => `${paymentMode}: ${count}`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="count"
+                  nameKey="paymentMode"
+                >
+                  {paymentModeStats.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  formatter={(value, name, props) => [
+                    `Count: ${value}, Amount: ${formatCurrency(props.payload.total)}`,
+                    props.payload.paymentMode
+                  ]}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="pie-legend">
+            {paymentModeStats.map((item, index) => (
+              <div key={index} className="pie-legend-item">
+                <div className="pie-legend-left">
+                  <div
+                    className="pie-legend-color"
+                    style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                  ></div>
+                  <span>{item.paymentMode}</span>
+                </div>
+                <span className="pie-legend-value">{formatCurrency(item.total)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
+
+      {/* Top Products Section */}
+      <div className="chart-card">
+        <div className="chart-header">
+          <div className="chart-header-text">
+            <h5 className="chart-title">
+              <i className="bi bi-star-fill"></i> Top 10 Products
+            </h5>
+            <p className="chart-subtitle">Best performing products by quantity sold</p>
+          </div>
+        </div>
+        <div className="table-responsive">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Product</th>
+                <th>Qty Sold</th>
+                <th>Bills</th>
+                <th>Revenue</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topProducts.length > 0 ? (
+                topProducts.map((product, index) => (
+                  <tr key={index}>
+                    <td>
+                      <span className="rank-badge">{index + 1}</span>
+                    </td>
+                    <td>
+                      <div className="product-info">
+                        <span className="product-name">{product.displayName}</span>
+                        <span className="product-sku">SKU: {product.productSKU}</span>
+                      </div>
+                    </td>
+                    <td><strong>{product.totalQuantitySold}</strong></td>
+                    <td>{product.billCount}</td>
+                    <td className="amount">{formatCurrency(product.totalRevenue)}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="5" className="no-data">No data available</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Top Attributes Section */}
+      {topAttributes.length > 0 && (
+        <div className="chart-card">
+          <div className="chart-header">
+            <div className="chart-header-text">
+              <h5 className="chart-title">
+                <i className="bi bi-tags-fill"></i> Top 10 Product Variants
+              </h5>
+              <p className="chart-subtitle">Best performing product attributes</p>
+            </div>
+          </div>
+          <div className="table-responsive">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Variant</th>
+                  <th>Qty Sold</th>
+                  <th>Bills</th>
+                  <th>Revenue</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topAttributes.map((attr, index) => (
+                  <tr key={index}>
+                    <td>
+                      <span className="rank-badge">{index + 1}</span>
+                    </td>
+                    <td>
+                      <div className="product-info">
+                        <span className="product-name">{attr.displayName}</span>
+                        <span className="product-sku">SKU: {attr.productSKU}</span>
+                      </div>
+                    </td>
+                    <td><strong>{attr.totalQuantitySold}</strong></td>
+                    <td>{attr.billCount}</td>
+                    <td className="amount">{formatCurrency(attr.totalRevenue)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Sales by Category */}
+      <div className="chart-card">
+        <div className="chart-header">
+          <div className="chart-header-text">
+            <h5 className="chart-title">
+              <i className="bi bi-diagram-3-fill"></i> Sales by Category
+            </h5>
+            <p className="chart-subtitle">Category-wise sales breakdown</p>
+          </div>
+        </div>
+        <div className="chart-wrapper">
+          <ResponsiveContainer width="100%" height={Math.max(250, billsByCategory.length * 60)}>
+            <BarChart data={billsByCategory} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis type="number" stroke="#94a3b8" />
+              <YAxis 
+                type="category" 
+                dataKey="categoryName" 
+                stroke="#94a3b8"
+                width={150}
+              />
+              <Tooltip 
+                formatter={(value, name) => {
+                  if (name === 'totalAmount') return [formatCurrency(value), 'Total Amount'];
+                  return [value, name];
+                }}
+              />
+              <Bar dataKey="billCount" fill="#4f46e5" name="Bill Count" radius={[0, 8, 8, 0]} />
+              <Bar dataKey="totalQuantity" fill="#10b981" name="Quantity" radius={[0, 8, 8, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Sales by SubCategory */}
+      {billsBySubCategory.length > 0 && (
+        <div className="chart-card">
+          <div className="chart-header">
+            <div className="chart-header-text">
+              <h5 className="chart-title">
+                <i className="bi bi-diagram-2-fill"></i> Sales by Sub-Category
+              </h5>
+              <p className="chart-subtitle">Sub-category wise sales breakdown</p>
+            </div>
+          </div>
+          <div className="table-responsive">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Sub-Category</th>
+                  <th>Category</th>
+                  <th>Bills</th>
+                  <th>Quantity</th>
+                  <th>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {billsBySubCategory.map((sub, index) => (
+                  <tr key={index}>
+                    <td><strong>{sub.subCategoryName}</strong></td>
+                    <td>{sub.categoryName}</td>
+                    <td>{sub.billCount}</td>
+                    <td>{sub.totalQuantity}</td>
+                    <td className="amount">{formatCurrency(sub.totalAmount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Recent Bills */}
+      <div className="chart-card">
+        <div className="chart-header">
+          <div className="chart-header-text">
+            <h5 className="chart-title">
+              <i className="bi bi-clock-history"></i> Recent Bills
+            </h5>
+            <p className="chart-subtitle">Last 5 bills</p>
+          </div>
+        </div>
+        <div className="table-responsive">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Bill No.</th>
+                <th>Customer</th>
+                <th>Items</th>
+                <th>Payment</th>
+                <th>Amount</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lastFiveBills.length > 0 ? (
+                lastFiveBills.map((bill, index) => (
+                  <tr key={index}>
+                    <td><strong>{bill.billNumber}</strong></td>
+                    <td>
+                      <div className="customer-info">
+                        <span className="customer-name">{bill.customerName}</span>
+                        <span className="customer-contact">{bill.customerContact}</span>
+                      </div>
+                    </td>
+                    <td>{bill.itemCount} items</td>
+                    <td>
+                      <span className={`payment-badge payment-${bill.paymentMode}`}>
+                        {bill.paymentMode}
+                      </span>
+                    </td>
+                    <td className="amount">{formatCurrency(bill.grandTotal)}</td>
+                    <td className="date-cell">{formatDate(bill.createdAt)}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="6" className="no-data">No recent bills</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Low Stock Alerts */}
+      {(lowStockProducts.length > 0 || lowStockAttributes.length > 0) && (
+        <div className="alert-section">
+          <h2 className="section-title alert-title">
+            <i className="bi bi-exclamation-triangle-fill"></i> Low Stock Alerts
+          </h2>
+          
+          {lowStockProducts.length > 0 && (
+            <div className="chart-card alert-card">
+              <div className="chart-header">
+                <div className="chart-header-text">
+                  <h5 className="chart-title">Low Stock Products</h5>
+                  <p className="chart-subtitle">Products with stock below 10 units</p>
+                </div>
+              </div>
+              <div className="table-responsive">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th>Category</th>
+                      <th>SKU</th>
+                      <th>Stock</th>
+                      <th>Price</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lowStockProducts.map((product, index) => (
+                      <tr key={index}>
+                        <td><strong>{product.name}</strong></td>
+                        <td>{product.category?.name}</td>
+                        <td>{product.sku}</td>
+                        <td>
+                          <span className={`stock-badge ${getStockStatusClass(product.stock)}`}>
+                            {product.stock} units
+                          </span>
+                        </td>
+                        <td className="amount">{formatCurrency(product.price)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {lowStockAttributes.length > 0 && (
+            <div className="chart-card alert-card">
+              <div className="chart-header">
+                <div className="chart-header-text">
+                  <h5 className="chart-title">Low Stock Variants</h5>
+                  <p className="chart-subtitle">Product variants with stock below 10 units</p>
+                </div>
+              </div>
+              <div className="table-responsive">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Variant</th>
+                      <th>Category</th>
+                      <th>SKU</th>
+                      <th>Stock</th>
+                      <th>Price</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lowStockAttributes.map((attr, index) => (
+                      <tr key={index}>
+                        <td>
+                          <div className="product-info">
+                            <span className="product-name">{attr.displayName}</span>
+                          </div>
+                        </td>
+                        <td>{attr.category}</td>
+                        <td>{attr.sku}</td>
+                        <td>
+                          <span className={`stock-badge ${getStockStatusClass(attr.stock)}`}>
+                            {attr.stock} units
+                          </span>
+                        </td>
+                        <td className="amount">{formatCurrency(attr.price)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

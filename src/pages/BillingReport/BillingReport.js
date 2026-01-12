@@ -15,6 +15,11 @@ const BillingReport = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [paymentModeFilter, setPaymentModeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState({
+    startDate: "",
+    endDate: "",
+  });
   const [viewingBill, setViewingBill] = useState(null);
   const [showBillModal, setShowBillModal] = useState(false);
   const [toasts, setToasts] = useState([]);
@@ -27,7 +32,7 @@ const BillingReport = () => {
 
   useEffect(() => {
     filterBills();
-  }, [bills, activeTab, searchQuery, paymentModeFilter]);
+  }, [bills, activeTab, searchQuery, paymentModeFilter, statusFilter, dateFilter]);
 
   const fetchBills = async () => {
     try {
@@ -50,6 +55,7 @@ const BillingReport = () => {
   const filterBills = () => {
     let filtered = bills;
 
+    // Category filter
     filtered = filtered.filter((bill) => {
       if (bill.items && bill.items.length > 0) {
         const category = getCategoryFromBill(bill);
@@ -58,6 +64,7 @@ const BillingReport = () => {
       return false;
     });
 
+    // Search query filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -68,8 +75,34 @@ const BillingReport = () => {
       );
     }
 
+    // Payment mode filter
     if (paymentModeFilter !== "all") {
       filtered = filtered.filter((bill) => bill.paymentMode === paymentModeFilter);
+    }
+
+    // Status filter
+    if (statusFilter === "active") {
+      filtered = filtered.filter((bill) => bill.isActive === 1);
+    } else if (statusFilter === "disabled") {
+      filtered = filtered.filter((bill) => bill.isActive === 0);
+    }
+
+    // Date range filter
+    if (dateFilter.startDate) {
+      filtered = filtered.filter((bill) => {
+        const billDate = new Date(bill.createdAt);
+        const startDate = new Date(dateFilter.startDate);
+        return billDate >= startDate;
+      });
+    }
+
+    if (dateFilter.endDate) {
+      filtered = filtered.filter((bill) => {
+        const billDate = new Date(bill.createdAt);
+        const endDate = new Date(dateFilter.endDate);
+        endDate.setHours(23, 59, 59, 999);
+        return billDate <= endDate;
+      });
     }
 
     setFilteredBills(filtered);
@@ -110,7 +143,7 @@ const BillingReport = () => {
   const handleDownloadBill = async (bill) => {
     try {
       const category = getCategoryFromBill(bill);
-      await generateProfessionalBillPDF(bill, category);
+      await generateProfessionalBillPDF(bill, category, false, token);
       showToast("success", "Success", "PDF downloaded successfully!");
     } catch (error) {
       console.error("Failed to download PDF:", error);
@@ -118,9 +151,36 @@ const BillingReport = () => {
     }
   };
 
+  const handleToggleBillStatus = async (billId, currentStatus) => {
+    const action = currentStatus === 1 ? 'disable' : 'enable';
+    const confirmMsg = currentStatus === 1
+      ? 'Are you sure you want to disable this bill?'
+      : 'Are you sure you want to enable this bill?';
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const response = await axios.put(
+        `${BASE_URL}/bills/${billId}/${action}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data && response.data.success) {
+        showToast("success", "Success", `Bill ${action}d successfully`);
+        fetchBills();
+      }
+    } catch (error) {
+      console.error(`Failed to ${action} bill:`, error);
+      showToast("error", "Error", `Failed to ${action} bill`);
+    }
+  };
+
   const handleResetFilters = () => {
     setSearchQuery("");
     setPaymentModeFilter("all");
+    setStatusFilter("all");
+    setDateFilter({ startDate: "", endDate: "" });
     setCurrentPage(1);
   };
 
@@ -158,6 +218,10 @@ const BillingReport = () => {
               <span className="stat-number">{bills.length}</span>
               <span className="stat-label">Total Bills</span>
             </div>
+            <div className="stat-item">
+              <span className="stat-number">{filteredBills.length}</span>
+              <span className="stat-label">Filtered</span>
+            </div>
           </div>
         </div>
       </div>
@@ -190,6 +254,35 @@ const BillingReport = () => {
             className="search-input"
           />
         </div>
+
+        <input
+          type="date"
+          className="date-filter"
+          value={dateFilter.startDate}
+          onChange={(e) => setDateFilter({ ...dateFilter, startDate: e.target.value })}
+          placeholder="Start Date"
+          title="Start Date"
+        />
+
+        <input
+          type="date"
+          className="date-filter"
+          value={dateFilter.endDate}
+          onChange={(e) => setDateFilter({ ...dateFilter, endDate: e.target.value })}
+          placeholder="End Date"
+          title="End Date"
+        />
+
+        <select
+          className="status-filter"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
+          <option value="all">All Status</option>
+          <option value="active">Active Only</option>
+          <option value="disabled">Disabled Only</option>
+        </select>
+
         <select
           className="payment-filter"
           value={paymentModeFilter}
@@ -202,9 +295,10 @@ const BillingReport = () => {
           <option value="netbanking">Net Banking</option>
           <option value="other">Other</option>
         </select>
+
         <button className="btn-reset" onClick={handleResetFilters}>
           <i className="bi bi-arrow-clockwise me-2"></i>
-          Reset Filters
+          Reset
         </button>
       </div>
 
@@ -212,7 +306,7 @@ const BillingReport = () => {
         <div className="no-bills">
           <i className="bi bi-inbox"></i>
           <h3>No bills found</h3>
-          <p>There are no billing records for this category</p>
+          <p>There are no billing records matching your filters</p>
         </div>
       ) : (
         <>
@@ -224,15 +318,21 @@ const BillingReport = () => {
                   <th>CUSTOMER INFO</th>
                   <th>PAYMENT</th>
                   <th>AMOUNT</th>
+                  <th>STATUS</th>
                   <th>ACTIONS</th>
                 </tr>
               </thead>
               <tbody>
                 {currentBills.map((bill) => (
-                  <tr key={bill.id}>
+                  <tr key={bill.id} className={bill.isActive === 0 ? 'disabled-row' : ''}>
                     <td data-label="Bill Details">
                       <div className="bill-details-cell">
-                        <div className="bill-number-main">{bill.billNumber}</div>
+                        <div className="bill-number-main">
+                          {bill.billNumber}
+                          {bill.isActive === 0 && (
+                            <span className="status-badge disabled">Disabled</span>
+                          )}
+                        </div>
                         <div className="bill-date">
                           {new Date(bill.createdAt).toLocaleDateString('en-IN', {
                             day: '2-digit',
@@ -262,8 +362,14 @@ const BillingReport = () => {
                     </td>
                     <td data-label="Amount">
                       <div className="amount-cell">
-                        ₹{parseFloat(bill.grandTotal).toFixed(2)}
+                        Rs {parseFloat(bill.grandTotal).toFixed(2)}
                       </div>
+                    </td>
+                    <td data-label="Status">
+                      <span className={`status-indicator ${bill.isActive === 1 ? 'active' : 'inactive'}`}>
+                        <i className={`bi ${bill.isActive === 1 ? 'bi-check-circle-fill' : 'bi-x-circle-fill'}`}></i>
+                        {bill.isActive === 1 ? 'Active' : 'Disabled'}
+                      </span>
                     </td>
                     <td data-label="Actions">
                       <div className="action-buttons">
@@ -272,14 +378,21 @@ const BillingReport = () => {
                           onClick={() => handleViewBill(bill.id)}
                           title="View Bill"
                         >
-                          <i className="bi bi-eye"></i> View
+                          <i className="bi bi-eye"></i>
                         </button>
                         <button
                           className="btn-download-small"
                           onClick={() => handleDownloadBill(bill)}
                           title="Download PDF"
                         >
-                          <i className="bi bi-download"></i> Download
+                          <i className="bi bi-download"></i>
+                        </button>
+                        <button
+                          className={`btn-toggle-small ${bill.isActive === 1 ? 'btn-disable' : 'btn-enable'}`}
+                          onClick={() => handleToggleBillStatus(bill.id, bill.isActive)}
+                          title={bill.isActive === 1 ? 'Disable Bill' : 'Enable Bill'}
+                        >
+                          <i className={`bi ${bill.isActive === 1 ? 'bi-x-circle' : 'bi-check-circle'}`}></i>
                         </button>
                       </div>
                     </td>
@@ -340,6 +453,11 @@ const BillingReport = () => {
                     <p><strong>Address:</strong> {viewingBill.customerAddress}</p>
                   )}
                   <p><strong>Payment Mode:</strong> {viewingBill.paymentMode.toUpperCase()}</p>
+                  <p><strong>Status:</strong>
+                    <span className={`status-indicator ${viewingBill.isActive === 1 ? 'active' : 'inactive'}`}>
+                      {viewingBill.isActive === 1 ? 'Active' : 'Disabled'}
+                    </span>
+                  </p>
                 </div>
 
                 <div className="preview-section">
@@ -365,8 +483,8 @@ const BillingReport = () => {
                             )}
                           </td>
                           <td>{item.quantity}</td>
-                          <td>₹{parseFloat(item.unitPrice).toFixed(2)}</td>
-                          <td>₹{parseFloat(item.total).toFixed(2)}</td>
+                          <td>Rs {parseFloat(item.unitPrice).toFixed(2)}</td>
+                          <td>Rs {parseFloat(item.total).toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -378,27 +496,27 @@ const BillingReport = () => {
                   <div className="summary-grid">
                     <div className="summary-item">
                       <span>Subtotal:</span>
-                      <span>₹{parseFloat(viewingBill.subtotal).toFixed(2)}</span>
+                      <span>Rs {parseFloat(viewingBill.subtotal).toFixed(2)}</span>
                     </div>
                     {parseFloat(viewingBill.totalGST) > 0 && (
                       <>
                         <div className="summary-item">
                           <span>CGST:</span>
-                          <span>₹{parseFloat(viewingBill.cgst).toFixed(2)}</span>
+                          <span>Rs {parseFloat(viewingBill.cgst).toFixed(2)}</span>
                         </div>
                         <div className="summary-item">
                           <span>SGST:</span>
-                          <span>₹{parseFloat(viewingBill.sgst).toFixed(2)}</span>
+                          <span>Rs {parseFloat(viewingBill.sgst).toFixed(2)}</span>
                         </div>
                         <div className="summary-item">
                           <span>Total GST:</span>
-                          <span>₹{parseFloat(viewingBill.totalGST).toFixed(2)}</span>
+                          <span>Rs {parseFloat(viewingBill.totalGST).toFixed(2)}</span>
                         </div>
                       </>
                     )}
                     <div className="summary-item grand-total-item">
                       <span>Grand Total:</span>
-                      <span>₹{parseFloat(viewingBill.grandTotal).toFixed(2)}</span>
+                      <span>Rs {parseFloat(viewingBill.grandTotal).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
@@ -408,6 +526,16 @@ const BillingReport = () => {
               <button className="btn-modal-download" onClick={() => handleDownloadBill(viewingBill)}>
                 <i className="bi bi-download me-2"></i>
                 Download PDF
+              </button>
+              <button
+                className={`btn-modal-toggle ${viewingBill.isActive === 1 ? 'btn-disable' : 'btn-enable'}`}
+                onClick={() => {
+                  handleToggleBillStatus(viewingBill.id, viewingBill.isActive);
+                  setShowBillModal(false);
+                }}
+              >
+                <i className={`bi ${viewingBill.isActive === 1 ? 'bi-x-circle me-2' : 'bi-check-circle me-2'}`}></i>
+                {viewingBill.isActive === 1 ? 'Disable Bill' : 'Enable Bill'}
               </button>
               <button className="btn-modal-close" onClick={() => setShowBillModal(false)}>
                 Close

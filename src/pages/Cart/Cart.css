@@ -16,13 +16,13 @@
   box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
 }
 
-.header-content {
+/* .header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: 1rem;
-}
+} */
 
 .header-text .page-title {
   color: white;
