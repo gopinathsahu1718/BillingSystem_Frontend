@@ -449,9 +449,11 @@ const BillingReport = () => {
                   <h4>Customer Information</h4>
                   <p><strong>Name:</strong> {viewingBill.customerName}</p>
                   <p><strong>Contact:</strong> {viewingBill.customerContact}</p>
-                  {viewingBill.customerAddress && (
-                    <p><strong>Address:</strong> {viewingBill.customerAddress}</p>
-                  )}
+                  <p><strong>Address:</strong> {
+                    viewingBill.customerAddress && viewingBill.customerAddress.trim() !== '' 
+                      ? <span className="address-value">{viewingBill.customerAddress}</span>
+                      : 'N/A'
+                  }</p>
                   <p><strong>Payment Mode:</strong> {viewingBill.paymentMode.toUpperCase()}</p>
                   <p><strong>Status:</strong>
                     <span className={`status-indicator ${viewingBill.isActive === 1 ? 'active' : 'inactive'}`}>

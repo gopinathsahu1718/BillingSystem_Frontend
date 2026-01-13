@@ -661,6 +661,13 @@
   font-size: 0.95rem;
 }
 
+.preview-section .address-value {
+  display: inline-block;
+  max-width: 28ch;
+  word-break: break-word;
+  white-space: normal;
+}
+
 .preview-section p strong {
   color: #111827;
   font-weight: 600;

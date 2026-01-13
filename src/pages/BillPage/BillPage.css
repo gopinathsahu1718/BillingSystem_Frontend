@@ -316,6 +316,13 @@ body {
   padding: 1mm 0;
 }
 
+.address-value {
+  display: inline-block;
+  max-width: 25ch;
+  word-break: break-word;
+  white-space: normal;
+}
+
 /* Items Table - Fixed Column Widths */
 .items-table {
   width: 100%;

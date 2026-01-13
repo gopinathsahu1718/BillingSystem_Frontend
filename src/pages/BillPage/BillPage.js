@@ -107,8 +107,13 @@ const BillPage = () => {
     time: billData.time || new Date().toLocaleTimeString('en-IN'),
     contactNo: billData.contactNo || billData.mobileNumber || billData.mobile || '',
     mobile: billData.mobile || billData.mobileNumber || '',
+    address: billData.address || billData.customerAddress || '',
     rupeesInWords: rupeesInWords
   };
+
+  const displayAddress = finalBillData.address && finalBillData.address.trim() !== ''
+    ? finalBillData.address
+    : 'N/A';
 
   // Transform cart items to bill items format
   const transformCartItems = (cartItems) => {
@@ -309,7 +314,9 @@ const BillPage = () => {
             <div className="customer-row">
               <span className="customer-icon">📍</span>
               <span className="customer-label">Address:</span>
-              <span className="customer-value">{finalBillData.address || '-'}</span>
+              <span className="customer-value address-value">
+                  {displayAddress}
+                </span>
             </div>
             <div className="customer-row">
               <span className="customer-icon">📞</span>

@@ -27,6 +27,12 @@ const Cart = () => {
     paymentMode: "cash",
   });
 
+  // Validation state for showing red borders
+  const [validationErrors, setValidationErrors] = useState({
+    customerName: false,
+    customerContact: false,
+  });
+
   useEffect(() => {
     fetchCartItems();
   }, []);
@@ -141,7 +147,38 @@ const Cart = () => {
 
   const handleCustomerFormChange = (e) => {
     const { name, value } = e.target;
-    setCustomerDetails({ ...customerDetails, [name]: value });
+    
+    if (name === "customerName") {
+      // Only allow letters, numbers, dots, and spaces
+      // Must start with a letter
+      const sanitized = value.replace(/[^a-zA-Z0-9.\s]/g, "");
+      
+      // If there's content and it doesn't start with a letter, don't update
+      if (sanitized && !/^[a-zA-Z]/.test(sanitized)) {
+        return;
+      }
+      
+      // Limit to 30 characters
+      setCustomerDetails({ 
+        ...customerDetails, 
+        [name]: sanitized.slice(0, 30) 
+      });
+      
+      // Clear validation error when user types
+      setValidationErrors(prev => ({ ...prev, customerName: false }));
+    } else if (name === "customerAddress") {
+      // Limit address to 40 characters
+      setCustomerDetails({ 
+        ...customerDetails, 
+        [name]: value.slice(0, 40) 
+      });
+    } else if (name === "customerContact") {
+      setCustomerDetails({ ...customerDetails, [name]: value });
+      // Clear validation error when user types
+      setValidationErrors(prev => ({ ...prev, customerContact: false }));
+    } else {
+      setCustomerDetails({ ...customerDetails, [name]: value });
+    }
   };
 
   const calculateItemSubtotal = (item) => {
@@ -205,16 +242,30 @@ const Cart = () => {
   };
 
   const handleCreateBill = async () => {
+    // Reset validation errors
+    const errors = {
+      customerName: false,
+      customerContact: false,
+    };
+
+    // Validate customer name
     if (!customerDetails.customerName.trim()) {
-      showToast("error", "Error", "Customer name is required");
-      return;
+      errors.customerName = true;
     }
+
+    // Validate customer contact
     if (!customerDetails.customerContact.trim()) {
-      showToast("error", "Error", "Customer contact is required");
-      return;
+      errors.customerContact = true;
+    } else if (!/^[6-9]\d{9}$/.test(customerDetails.customerContact)) {
+      errors.customerContact = true;
     }
-    if (!/^[6-9]\d{9}$/.test(customerDetails.customerContact)) {
-      showToast("error", "Error", "Invalid contact number");
+
+    // Set validation errors
+    setValidationErrors(errors);
+
+    // If any errors, show single error message and stop
+    if (errors.customerName || errors.customerContact) {
+      showToast("error", "Error", "Please fill all the mandatory fields");
       return;
     }
 
@@ -227,10 +278,13 @@ const Cart = () => {
         quantity: item.quantity,
       }));
 
+      const trimmedAddress = customerDetails.customerAddress.trim();
+      const customerAddressForBill = trimmedAddress || 'N/A';
+
       const billData = {
         customerName: customerDetails.customerName.trim(),
         customerContact: customerDetails.customerContact.trim(),
-        customerAddress: customerDetails.customerAddress.trim(),
+        customerAddress: customerAddressForBill,
         paymentMode: customerDetails.paymentMode,
         items: items,
       };
@@ -252,6 +306,10 @@ const Cart = () => {
           customerContact: "",
           customerAddress: "",
           paymentMode: "cash",
+        });
+        setValidationErrors({
+          customerName: false,
+          customerContact: false,
         });
         fetchCartItems();
       }
@@ -501,14 +559,19 @@ const Cart = () => {
                 <label>
                   Customer Name <span className="required">*</span>
                 </label>
-                <input
-                  type="text"
-                  name="customerName"
-                  placeholder="Enter customer name"
-                  value={customerDetails.customerName}
-                  onChange={handleCustomerFormChange}
-                  required
-                />
+                <div className="input-with-counter">
+                  <input
+                    type="text"
+                    name="customerName"
+                    placeholder="Enter customer name"
+                    value={customerDetails.customerName}
+                    onChange={handleCustomerFormChange}
+                    maxLength="30"
+                    required
+                    className={validationErrors.customerName ? 'input-invalid' : ''}
+                  />
+                  <span className="char-count-inside">{customerDetails.customerName.length}/30</span>
+                </div>
               </div>
               <div className="form-group">
                 <label>
@@ -522,17 +585,22 @@ const Cart = () => {
                   onChange={handleCustomerFormChange}
                   maxLength="10"
                   required
+                  className={validationErrors.customerContact ? 'input-invalid' : ''}
                 />
               </div>
               <div className="form-group">
                 <label>Address</label>
-                <textarea
-                  name="customerAddress"
-                  placeholder="Enter customer address (optional)"
-                  value={customerDetails.customerAddress}
-                  onChange={handleCustomerFormChange}
-                  rows="2"
-                />
+                <div className="textarea-with-counter">
+                  <textarea
+                    name="customerAddress"
+                    placeholder="Enter customer address (optional)"
+                    value={customerDetails.customerAddress}
+                    onChange={handleCustomerFormChange}
+                    rows="2"
+                    maxLength="40"
+                  />
+                  <span className="char-count-inside-textarea">{customerDetails.customerAddress.length}/40</span>
+                </div>
               </div>
               <div className="form-group">
                 <label>Payment Mode <span className="required">*</span></label>

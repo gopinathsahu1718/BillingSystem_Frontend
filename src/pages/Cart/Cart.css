@@ -413,6 +413,94 @@
   min-height: 60px;
 }
 
+/* Input with counter wrapper */
+.input-with-counter {
+  position: relative;
+  width: 100%;
+}
+
+.input-with-counter input {
+  width: 100%;
+  padding: 0.75rem 4rem 0.75rem 0.75rem; /* Extra right padding for counter */
+  border: 2px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.input-with-counter input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.input-with-counter input.input-invalid {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.input-with-counter input.input-invalid:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15);
+}
+
+/* Character counter inside input */
+.char-count-inside {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-weight: 600;
+  background: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Textarea with counter wrapper */
+.textarea-with-counter {
+  position: relative;
+  width: 100%;
+}
+
+.textarea-with-counter textarea {
+  width: 100%;
+  padding: 0.75rem 0.75rem 2rem 0.75rem; /* Extra bottom padding for counter */
+  border: 2px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 60px;
+  max-height: 80px;
+}
+
+.textarea-with-counter textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Character counter inside textarea */
+.char-count-inside-textarea {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.5rem;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-weight: 600;
+  background: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  pointer-events: none;
+  user-select: none;
+}
+
 /* Create Bill Button */
 .btn-create-bill {
   width: 100%;
@@ -774,6 +862,24 @@
   color: #374151;
 }
 
+/* Invalid input validation styling */
+.input-invalid {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.08) !important;
+}
+
+.form-group input.input-invalid,
+.form-group textarea.input-invalid {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.form-group input.input-invalid:focus,
+.form-group textarea.input-invalid:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15);
+}
+
 /* Responsive Design */
 @media screen and (max-width: 1200px) {
   .cart-bottom-row {
@@ -853,5 +959,24 @@
     left: 1rem;
     right: 1rem;
     max-width: none;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .char-count-inside {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.4rem;
+    right: 0.5rem;
+  }
+
+  .char-count-inside-textarea {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.4rem;
+    right: 0.5rem;
+    bottom: 0.4rem;
+  }
+
+  .input-with-counter input {
+    padding-right: 3.5rem;
   }
 }
