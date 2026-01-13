@@ -43,14 +43,6 @@
   gap: 1.5rem;
 }
 
-/* .stat-item {
-  text-align: center;
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-  padding: 0.75rem 1.5rem;
-  border-radius: 12px;
-} */
-
 .stat-number {
   display: block;
   color: white;
@@ -147,6 +139,34 @@
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
+/* Date Filter Wrapper */
+.date-filter-wrapper {
+  position: relative;
+  min-width: 150px;
+}
+
+.date-filter-label {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #9ca3af;
+  pointer-events: none;
+  transition: all 0.2s ease;
+  background: white;
+  padding: 0 0.25rem;
+}
+
+.date-filter:focus + .date-filter-label,
+.date-filter:not(:placeholder-shown) + .date-filter-label,
+.date-filter:valid + .date-filter-label {
+  top: 0;
+  font-size: 0.75rem;
+  color: #667eea;
+}
+
 /* Date Filter */
 .date-filter {
   padding: 0.875rem 1rem;
@@ -157,6 +177,7 @@
   transition: all 0.2s ease;
   background: white;
   min-width: 150px;
+  width: 100%;
 }
 
 .date-filter:focus {
@@ -662,10 +683,11 @@
 }
 
 .preview-section .address-value {
-  display: inline-block;
-  max-width: 28ch;
-  word-break: break-word;
+  display: inline;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   white-space: normal;
+  line-height: 1.5;
 }
 
 .preview-section p strong {
@@ -952,7 +974,7 @@
   }
 
   .search-box,
-  .date-filter,
+  .date-filter-wrapper,
   .status-filter,
   .payment-filter,
   .btn-reset {

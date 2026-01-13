@@ -255,23 +255,27 @@ const BillingReport = () => {
           />
         </div>
 
-        <input
-          type="date"
-          className="date-filter"
-          value={dateFilter.startDate}
-          onChange={(e) => setDateFilter({ ...dateFilter, startDate: e.target.value })}
-          placeholder="Start Date"
-          title="Start Date"
-        />
+        <div className="date-filter-wrapper">
+          <input
+            type="date"
+            className="date-filter"
+            value={dateFilter.startDate}
+            onChange={(e) => setDateFilter({ ...dateFilter, startDate: e.target.value })}
+            placeholder="From"
+          />
+          <label className="date-filter-label">From</label>
+        </div>
 
-        <input
-          type="date"
-          className="date-filter"
-          value={dateFilter.endDate}
-          onChange={(e) => setDateFilter({ ...dateFilter, endDate: e.target.value })}
-          placeholder="End Date"
-          title="End Date"
-        />
+        <div className="date-filter-wrapper">
+          <input
+            type="date"
+            className="date-filter"
+            value={dateFilter.endDate}
+            onChange={(e) => setDateFilter({ ...dateFilter, endDate: e.target.value })}
+            placeholder="To"
+          />
+          <label className="date-filter-label">To</label>
+        </div>
 
         <select
           className="status-filter"

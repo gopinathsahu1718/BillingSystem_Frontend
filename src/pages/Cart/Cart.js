@@ -151,7 +151,7 @@ const Cart = () => {
     if (name === "customerName") {
       // Only allow letters, numbers, dots, and spaces
       // Must start with a letter
-      const sanitized = value.replace(/[^a-zA-Z0-9.\s]/g, "");
+      const sanitized = value.replace(/[^a-zA-Z.\s]/g, "");
       
       // If there's content and it doesn't start with a letter, don't update
       if (sanitized && !/^[a-zA-Z]/.test(sanitized)) {
