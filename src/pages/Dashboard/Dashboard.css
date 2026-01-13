@@ -1,10 +1,16 @@
+.stat-labelA{
+  color: rgb(32, 31, 31);
+}
 /* Dashboard Container */
 .dashboard-container {
-  padding: 1.5rem;
+  /* padding: 1.5rem; */
   width: 100%;
   max-width: 100%;
   background-color: #f8fafc;
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 /* Loading Overlay */
@@ -115,7 +121,9 @@
   align-items: center;
   gap: 0.75rem;
 }
-
+.page-header p{
+  color: white !important;
+}
 .page-subtitle {
   font-size: 1rem;
   opacity: 0.95;
@@ -572,7 +580,10 @@
 
 /* Alert Section */
 .alert-section {
-  margin-top: 2rem;
+    margin-top: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 .alert-card {

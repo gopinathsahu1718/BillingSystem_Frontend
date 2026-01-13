@@ -31,7 +31,16 @@ const ProductSelection = () => {
   const [quantity, setQuantity] = useState(1);
   const [toasts, setToasts] = useState([]);
 
-  // Category mapping - Update these IDs based on your actual database
+  // ──────────────────────────────────────────────
+  // UTILITY FUNCTIONS - Moved up to prevent reference errors
+  // ──────────────────────────────────────────────
+
+  const calculateDiscount = (price, actualPrice) => {
+    if (!actualPrice || price >= actualPrice) return 0;
+    return Math.round(((actualPrice - price) / actualPrice) * 100);
+  };
+
+  // Category mapping
   const CATEGORY_MAPPING = {
     laxmi_bookstore: { name: "Laxmi Bookstore", displayName: "Laxmi Bookstore" },
     swasthik_enterprises: { name: "Swasthik Enterprises", displayName: "Swasthik Enterprises" }
@@ -49,7 +58,6 @@ const ProductSelection = () => {
       try {
         setLoadingProducts(true);
 
-        // Fetch categories
         const catResponse = await axios.get(`${STORE_BASE_URL}/categories`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -63,7 +71,6 @@ const ProductSelection = () => {
 
         setCategories(fetchedCategories);
 
-        // Fetch subcategories
         const subcatResponse = await axios.get(`${STORE_BASE_URL}/subcategories`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -78,7 +85,6 @@ const ProductSelection = () => {
 
         setSubcategories(fetchedSubcategories);
 
-        // Fetch products with attributes
         const productResponse = await axios.get(`${STORE_BASE_URL}/products`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -186,7 +192,6 @@ const ProductSelection = () => {
     return category?.id;
   };
 
-  // Get product counts for both categories
   const getLaxmiBookstoreCount = () => {
     const laxmiCategory = categories.find(cat => 
       cat.name.toLowerCase().replace(/\s+/g, '_') === 'laxmi_bookstore'
@@ -201,7 +206,7 @@ const ProductSelection = () => {
     return products.filter(p => p.categoryId === swasthikCategory?.id && p.isActive).length;
   };
 
-  // Filter products by active category
+  // Filter products
   const filteredProducts = products.filter((p) => {
     const currentCategoryId = getCurrentCategoryId();
     const matchesCategory = p.categoryId === currentCategoryId;
@@ -214,7 +219,7 @@ const ProductSelection = () => {
     return matchesCategory && matchesSearch && matchesSubcategory && isActive;
   });
 
-  // Sort products based on selected sort option
+  // Sort products
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     if (!sortBy) return 0;
 
@@ -240,12 +245,11 @@ const ProductSelection = () => {
     }
   });
 
-  // Get subcategories for active category
+  // Get subcategories for current category
   const currentCategorySubcategories = subcategories
     .filter((sc) => sc.categoryId === getCurrentCategoryId())
     .map((sc) => ({ value: sc.id, label: sc.name }));
 
-  // Sort options
   const sortOptions = [
     { value: 'name_asc', label: 'Name: A to Z', icon: 'bi-sort-alpha-down' },
     { value: 'name_desc', label: 'Name: Z to A', icon: 'bi-sort-alpha-up' },
@@ -280,12 +284,9 @@ const ProductSelection = () => {
     }),
   };
 
-  const calculateDiscount = (price, actualPrice) => {
-    if (!actualPrice || price >= actualPrice) return 0;
-    return Math.round(((actualPrice - price) / actualPrice) * 100);
-  };
+  // Rest of your component remains the same...
+  // (ProductTableRow component, return JSX, modal, toasts, etc.)
 
-  // Check if product or variant is in cart
   const isInCart = (productId, variantId = null) => {
     return cartItems.some(item => 
       item.productId === productId && 
@@ -293,7 +294,6 @@ const ProductSelection = () => {
     );
   };
 
-  // Get quantity in cart for product or variant
   const getCartQuantity = (productId, variantId = null) => {
     const cartItem = cartItems.find(item => 
       item.productId === productId && 
@@ -302,20 +302,17 @@ const ProductSelection = () => {
     return cartItem ? cartItem.quantity : 0;
   };
 
-  // Check available stock (considering cart quantity)
   const getAvailableStock = (stock, productId, variantId = null) => {
     const cartQty = getCartQuantity(productId, variantId);
     return stock - cartQty;
   };
 
-  // Product Table Row Component
   const ProductTableRow = ({ product, index }) => {
     const [localQuantity, setLocalQuantity] = useState(1);
     const [selectedVariant, setSelectedVariant] = useState(null);
 
     const hasVariants = product.attributes && product.attributes.length > 0;
 
-    // Check if any variant is in cart
     const hasAnyVariantInCart = hasVariants 
       ? product.attributes.some(attr => isInCart(product.id, attr.id))
       : false;

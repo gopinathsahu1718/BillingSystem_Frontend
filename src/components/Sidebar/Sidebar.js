@@ -23,7 +23,7 @@ function Sidebar({ handleLogout, sidebarOpen, setSidebarOpen }) {
             <span className="fw-bold fs-4">
               <img
                 className="rounded-3"
-                src="hearingzen_logo.jpeg"
+                src="lord_ganesha.jpeg"
                 alt="HearingZen"
                 width="50"
                 height="50"

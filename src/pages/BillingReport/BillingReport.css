@@ -1,6 +1,6 @@
 /* Billing Reports Page - Complete with all features */
 .billing-container {
-  padding: 2rem;
+  /* padding: 2rem; */
   max-width: 1600px;
   margin: 0 auto;
   min-height: 100vh;
@@ -43,13 +43,13 @@
   gap: 1.5rem;
 }
 
-.stat-item {
+/* .stat-item {
   text-align: center;
   background: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(10px);
   padding: 0.75rem 1.5rem;
   border-radius: 12px;
-}
+} */
 
 .stat-number {
   display: block;
@@ -597,7 +597,7 @@
   align-items: center;
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 1000;
 }
 
 .modal-header h3 {

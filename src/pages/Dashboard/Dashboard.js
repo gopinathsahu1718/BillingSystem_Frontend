@@ -179,7 +179,7 @@ function Dashboard() {
           <div className="stat-card-content">
             <div className="stat-card-header">
               <div>
-                <div className="stat-label">Today's Bills</div>
+                <div className="stat-labelA">Today's Bills</div>
                 <div className="stat-value">{overview.todayBills.count}</div>
               </div>
               <div className="stat-icon revenue-icon">
@@ -196,7 +196,7 @@ function Dashboard() {
           <div className="stat-card-content">
             <div className="stat-card-header">
               <div>
-                <div className="stat-label">This Week</div>
+                <div className="stat-labelA">This Week</div>
                 <div className="stat-value">{overview.weekBills.count}</div>
               </div>
               <div className="stat-icon registration-icon">
@@ -213,7 +213,7 @@ function Dashboard() {
           <div className="stat-card-content">
             <div className="stat-card-header">
               <div>
-                <div className="stat-label">This Month</div>
+                <div className="stat-labelA">This Month</div>
                 <div className="stat-value">{overview.monthBills.count}</div>
               </div>
               <div className="stat-icon courses-icon">
@@ -230,7 +230,7 @@ function Dashboard() {
           <div className="stat-card-content">
             <div className="stat-card-header">
               <div>
-                <div className="stat-label">Total Bills</div>
+                <div className="stat-labelA">Total Bills</div>
                 <div className="stat-value">{overview.totalBills.count}</div>
               </div>
               <div className="stat-icon rate-icon">
