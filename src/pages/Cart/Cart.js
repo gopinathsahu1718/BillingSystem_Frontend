@@ -366,6 +366,25 @@ const Cart = () => {
     return "Unknown Category";
   };
 
+  // Get breadcrumb text based on state
+  const getBreadcrumbText = () => {
+    if (cartItems.length === 0) {
+      return "Empty Cart";
+    }
+    if (generatingBill) {
+      return "Processing Bill";
+    }
+    // Show "Checkout" if user has filled both mandatory fields
+    if (customerDetails.customerName.trim() && customerDetails.customerContact.trim()) {
+      return "Ready to Checkout";
+    }
+    // Show "Filling Details" if user has started filling the form
+    if (customerDetails.customerName || customerDetails.customerContact || customerDetails.customerAddress) {
+      return "Entering Details";
+    }
+    return "Shopping Cart";
+  };
+
   const isLaxmiBookstore = categoryType === "laxmi_bookstore";
   const summary = calculateCartSummary();
 
@@ -382,14 +401,18 @@ const Cart = () => {
 
   return (
     <div className="cart-container">
-      <div className="page-header">
-        <div className="header-content">
-          <div className="header-text">
-            <h2 className="page-title">
+      <div className="cart-page-header">
+        <div className="cart-header-content">
+          <div className="cart-header-text">
+            <h2 className="cart-page-title">
               <i className="bi bi-cart3 me-2"></i>
               Shopping Cart
             </h2>
-            <div className="breadcrumbs">Cart Management</div>
+            <div className="cart-breadcrumbs">
+              <span>Cart</span>
+              <span className="cart-breadcrumb-separator">&gt;</span>
+              <span>{getBreadcrumbText()}</span>
+            </div>
           </div>
           {cartItems.length > 0 && (
             <div className="header-badge">

@@ -5,7 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 
 const API_BASE = 'http://13.232.200.172/api/store/profile';
 
-const StoreProfileCard = ({ storeType }) => {
+const StoreProfileCard = ({ storeType, onEditingChange }) => {
   const { token } = useAuth();
   const [profile, setProfile] = useState(null);
   const [originalProfile, setOriginalProfile] = useState(null);
@@ -15,7 +15,15 @@ const StoreProfileCard = ({ storeType }) => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [errors, setErrors] = useState({});
-  const [activeTab, setActiveTab] = useState('about');
+
+  const storeName = storeType === 'swasthik' ? 'Swasthik' : 'Laxmi';
+
+  // Notify parent component when editing state changes
+  useEffect(() => {
+    if (onEditingChange) {
+      onEditingChange(editing);
+    }
+  }, [editing, onEditingChange]);
 
   useEffect(() => {
     if (token) {
@@ -224,7 +232,6 @@ const StoreProfileCard = ({ storeType }) => {
   return (
     <div className={`profile-card ${storeType}`}>
       <div className="profile-sidebar">
-        {/* Profile photo removed; showing bank details below instead */}
         <div className="store-name-header">
           <h2>{profile.storeName}</h2>
           <p className="store-subtitle">{profile.ownerName}</p>
@@ -292,351 +299,251 @@ const StoreProfileCard = ({ storeType }) => {
           )}
         </div>
 
-        <div className="profile-tabs">
-          <div 
-            className={`tab ${activeTab === 'about' ? 'active' : ''}`}
-            onClick={() => setActiveTab('about')}
-          >
-            About
-          </div>
-          <div 
-            className={`tab ${activeTab === 'timeline' ? 'active' : ''}`}
-            onClick={() => setActiveTab('timeline')}
-          >
-            Timeline
-          </div>
-        </div>
-
         <div className="profile-content">
-          {activeTab === 'about' && (
-            <div className="info-grid">
-              <div className="info-item">
-                <div className="info-label">
-                  <Building2 size={16} />
-                  Store Name
-                </div>
-                <div className="info-value">
-                  {editing ? (
-                    <>
-                      <input
-                        type="text"
-                        value={profile.storeName || ''}
-                        onChange={(e) => handleChange('storeName', e.target.value)}
-                        className={errors.storeName ? 'input-error' : ''}
-                      />
-                      {errors.storeName && <span className="error-text">{errors.storeName}</span>}
-                    </>
-                  ) : (
-                    profile.storeName
-                  )}
-                </div>
+          <div className="info-grid">
+            <div className="info-item">
+              <div className="info-label">
+                <Building2 size={16} />
+                Store Name
               </div>
-
-              <div className="info-item">
-                <div className="info-label">Owner Name</div>
-                <div className="info-value">
-                  {editing ? (
-                    <>
-                      <input
-                        type="text"
-                        value={profile.ownerName || ''}
-                        onChange={(e) => handleChange('ownerName', e.target.value)}
-                        className={errors.ownerName ? 'input-error' : ''}
-                      />
-                      {errors.ownerName && <span className="error-text">{errors.ownerName}</span>}
-                    </>
-                  ) : (
-                    profile.ownerName
-                  )}
-                </div>
-              </div>
-
-              <div className="info-item">
-                <div className="info-label">
-                  <Mail size={16} />
-                  Email
-                </div>
-                <div className="info-value">
-                  {editing ? (
-                    <>
-                      <input
-                        type="email"
-                        value={profile.email || ''}
-                        onChange={(e) => handleChange('email', e.target.value)}
-                        className={errors.email ? 'input-error' : ''}
-                      />
-                      {errors.email && <span className="error-text">{errors.email}</span>}
-                    </>
-                  ) : (
-                    profile.email
-                  )}
-                </div>
-              </div>
-
-              <div className="info-item">
-                <div className="info-label">
-                  <Phone size={16} />
-                  Phone
-                </div>
-                <div className="info-value">
-                  {editing ? (
-                    <>
-                      <input
-                        type="tel"
-                        value={profile.phone || ''}
-                        onChange={(e) => {
-                          if (/^\d{0,10}$/.test(e.target.value)) {
-                            handleChange('phone', e.target.value);
-                          }
-                        }}
-                        maxLength={10}
-                        className={errors.phone ? 'input-error' : ''}
-                      />
-                      {errors.phone && <span className="error-text">{errors.phone}</span>}
-                    </>
-                  ) : (
-                    profile.phone
-                  )}
-                </div>
-              </div>
-
-              <div className="info-item">
-                <div className="info-label">Alternate Phone</div>
-                <div className="info-value">
-                  {editing ? (
-                    <>
-                      <input
-                        type="tel"
-                        value={profile.alternatePhone || ''}
-                        onChange={(e) => {
-                          if (/^\d{0,10}$/.test(e.target.value)) {
-                            handleChange('alternatePhone', e.target.value);
-                          }
-                        }}
-                        maxLength={10}
-                        placeholder="Optional"
-                        className={errors.alternatePhone ? 'input-error' : ''}
-                      />
-                      {errors.alternatePhone && <span className="error-text">{errors.alternatePhone}</span>}
-                    </>
-                  ) : (
-                    profile.alternatePhone || 'Not provided'
-                  )}
-                </div>
-              </div>
-
-              <div className="info-item full-width">
-                <div className="info-label">
-                  <MapPin size={16} />
-                  Address
-                </div>
-                <div className="info-value">
-                  {editing ? (
-                    <>
-                      <textarea
-                        value={profile.address || ''}
-                        onChange={(e) => handleChange('address', e.target.value)}
-                        className={errors.address ? 'input-error' : ''}
-                      />
-                      {errors.address && <span className="error-text">{errors.address}</span>}
-                    </>
-                  ) : (
-                    profile.address
-                  )}
-                </div>
-              </div>
-
-              <div className="info-item">
-                <div className="info-label">City</div>
-                <div className="info-value">
-                  {editing ? (
-                    <>
-                      <input
-                        type="text"
-                        value={profile.city || ''}
-                        onChange={(e) => handleChange('city', e.target.value)}
-                        className={errors.city ? 'input-error' : ''}
-                      />
-                      {errors.city && <span className="error-text">{errors.city}</span>}
-                    </>
-                  ) : (
-                    profile.city
-                  )}
-                </div>
-              </div>
-
-              <div className="info-item">
-                <div className="info-label">State</div>
-                <div className="info-value">
-                  {editing ? (
-                    <>
-                      <input
-                        type="text"
-                        value={profile.state || ''}
-                        onChange={(e) => handleChange('state', e.target.value)}
-                        className={errors.state ? 'input-error' : ''}
-                      />
-                      {errors.state && <span className="error-text">{errors.state}</span>}
-                    </>
-                  ) : (
-                    profile.state
-                  )}
-                </div>
-              </div>
-
-              <div className="info-item">
-                <div className="info-label">Pincode</div>
-                <div className="info-value">
-                  {editing ? (
-                    <>
-                      <input
-                        type="text"
-                        value={profile.pincode || ''}
-                        onChange={(e) => {
-                          if (/^\d{0,6}$/.test(e.target.value)) {
-                            handleChange('pincode', e.target.value);
-                          }
-                        }}
-                        maxLength={6}
-                        className={errors.pincode ? 'input-error' : ''}
-                      />
-                      {errors.pincode && <span className="error-text">{errors.pincode}</span>}
-                    </>
-                  ) : (
-                    profile.pincode
-                  )}
-                </div>
-              </div>
-
-              <div className="info-item">
-                <div className="info-label">
-                  <CreditCard size={16} />
-                  GST Number
-                </div>
-                <div className="info-value">
-                  {editing ? (
-                    <>
-                      <input
-                        type="text"
-                        value={profile.gstNumber || ''}
-                        onChange={(e) => handleChange('gstNumber', e.target.value.toUpperCase())}
-                        placeholder="22AAAAA0000A1Z5"
-                        maxLength={15}
-                        className={errors.gstNumber ? 'input-error' : ''}
-                      />
-                      {errors.gstNumber && <span className="error-text">{errors.gstNumber}</span>}
-                    </>
-                  ) : (
-                    profile.gstNumber || 'Not provided'
-                  )}
-                </div>
-              </div>
-
-              <div className="info-item">
-                <div className="info-label">PAN Number</div>
-                <div className="info-value">
-                  {editing ? (
-                    <>
-                      <input
-                        type="text"
-                        value={profile.panNumber || ''}
-                        onChange={(e) => handleChange('panNumber', e.target.value.toUpperCase())}
-                        placeholder="ABCDE1234F"
-                        maxLength={10}
-                        className={errors.panNumber ? 'input-error' : ''}
-                      />
-                      {errors.panNumber && <span className="error-text">{errors.panNumber}</span>}
-                    </>
-                  ) : (
-                    profile.panNumber || 'Not provided'
-                  )}
-                </div>
-              </div>
-
-              <div className="info-item">
-                <div className="info-label">
-                  <Building size={16} />
-                  Bank Name
-                </div>
-                <div className="info-value">
-                  {editing ? (
+              <div className="info-value">
+                {editing ? (
+                  <>
                     <input
                       type="text"
-                      value={profile.bankName || ''}
-                      onChange={(e) => handleChange('bankName', e.target.value)}
+                      value={profile.storeName || ''}
+                      onChange={(e) => handleChange('storeName', e.target.value)}
+                      className={errors.storeName ? 'input-error' : ''}
                     />
-                  ) : (
-                    profile.bankName || 'Not provided'
-                  )}
-                </div>
+                    {errors.storeName && <span className="error-text">{errors.storeName}</span>}
+                  </>
+                ) : (
+                  profile.storeName
+                )}
               </div>
+            </div>
 
-              <div className="info-item">
-                <div className="info-label">Account Number</div>
-                <div className="info-value">
-                  {editing ? (
-                    <>
-                      <input
-                        type="text"
-                        value={profile.accountNumber || ''}
-                        onChange={(e) => {
-                          if (/^\d{0,18}$/.test(e.target.value)) {
-                            handleChange('accountNumber', e.target.value);
-                          }
-                        }}
-                        className={errors.accountNumber ? 'input-error' : ''}
-                      />
-                      {errors.accountNumber && <span className="error-text">{errors.accountNumber}</span>}
-                    </>
-                  ) : (
-                    profile.accountNumber || 'Not provided'
-                  )}
-                </div>
-              </div>
-
-              <div className="info-item">
-                <div className="info-label">IFSC Code</div>
-                <div className="info-value">
-                  {editing ? (
-                    <>
-                      <input
-                        type="text"
-                        value={profile.ifscCode || ''}
-                        onChange={(e) => handleChange('ifscCode', e.target.value.toUpperCase())}
-                        placeholder="SBIN0001234"
-                        maxLength={11}
-                        className={errors.ifscCode ? 'input-error' : ''}
-                      />
-                      {errors.ifscCode && <span className="error-text">{errors.ifscCode}</span>}
-                    </>
-                  ) : (
-                    profile.ifscCode || 'Not provided'
-                  )}
-                </div>
-              </div>
-
-              <div className="info-item">
-                <div className="info-label">Branch Name</div>
-                <div className="info-value">
-                  {editing ? (
+            <div className="info-item">
+              <div className="info-label">Owner Name</div>
+              <div className="info-value">
+                {editing ? (
+                  <>
                     <input
                       type="text"
-                      value={profile.branchName || ''}
-                      onChange={(e) => handleChange('branchName', e.target.value)}
+                      value={profile.ownerName || ''}
+                      onChange={(e) => handleChange('ownerName', e.target.value)}
+                      className={errors.ownerName ? 'input-error' : ''}
                     />
-                  ) : (
-                    profile.branchName || 'Not provided'
-                  )}
-                </div>
+                    {errors.ownerName && <span className="error-text">{errors.ownerName}</span>}
+                  </>
+                ) : (
+                  profile.ownerName
+                )}
               </div>
             </div>
-          )}
 
-          {activeTab === 'timeline' && (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>
-              <p>Timeline feature coming soon...</p>
+            <div className="info-item">
+              <div className="info-label">
+                <Mail size={16} />
+                Email
+              </div>
+              <div className="info-value">
+                {editing ? (
+                  <>
+                    <input
+                      type="email"
+                      value={profile.email || ''}
+                      onChange={(e) => handleChange('email', e.target.value)}
+                      className={errors.email ? 'input-error' : ''}
+                    />
+                    {errors.email && <span className="error-text">{errors.email}</span>}
+                  </>
+                ) : (
+                  profile.email
+                )}
+              </div>
             </div>
-          )}
+
+            <div className="info-item">
+              <div className="info-label">
+                <Phone size={16} />
+                Phone
+              </div>
+              <div className="info-value">
+                {editing ? (
+                  <>
+                    <input
+                      type="tel"
+                      value={profile.phone || ''}
+                      onChange={(e) => {
+                        if (/^\d{0,10}$/.test(e.target.value)) {
+                          handleChange('phone', e.target.value);
+                        }
+                      }}
+                      maxLength={10}
+                      className={errors.phone ? 'input-error' : ''}
+                    />
+                    {errors.phone && <span className="error-text">{errors.phone}</span>}
+                  </>
+                ) : (
+                  profile.phone
+                )}
+              </div>
+            </div>
+
+            <div className="info-item">
+              <div className="info-label">Alternate Phone</div>
+              <div className="info-value">
+                {editing ? (
+                  <>
+                    <input
+                      type="tel"
+                      value={profile.alternatePhone || ''}
+                      onChange={(e) => {
+                        if (/^\d{0,10}$/.test(e.target.value)) {
+                          handleChange('alternatePhone', e.target.value);
+                        }
+                      }}
+                      maxLength={10}
+                      placeholder="Optional"
+                      className={errors.alternatePhone ? 'input-error' : ''}
+                    />
+                    {errors.alternatePhone && <span className="error-text">{errors.alternatePhone}</span>}
+                  </>
+                ) : (
+                  profile.alternatePhone || 'Not provided'
+                )}
+              </div>
+            </div>
+
+            <div className="info-item full-width">
+              <div className="info-label">
+                <MapPin size={16} />
+                Address
+              </div>
+              <div className="info-value">
+                {editing ? (
+                  <>
+                    <textarea
+                      value={profile.address || ''}
+                      onChange={(e) => handleChange('address', e.target.value)}
+                      className={errors.address ? 'input-error' : ''}
+                    />
+                    {errors.address && <span className="error-text">{errors.address}</span>}
+                  </>
+                ) : (
+                  profile.address
+                )}
+              </div>
+            </div>
+
+            <div className="info-item">
+              <div className="info-label">City</div>
+              <div className="info-value">
+                {editing ? (
+                  <>
+                    <input
+                      type="text"
+                      value={profile.city || ''}
+                      onChange={(e) => handleChange('city', e.target.value)}
+                      className={errors.city ? 'input-error' : ''}
+                    />
+                    {errors.city && <span className="error-text">{errors.city}</span>}
+                  </>
+                ) : (
+                  profile.city
+                )}
+              </div>
+            </div>
+
+            <div className="info-item">
+              <div className="info-label">State</div>
+              <div className="info-value">
+                {editing ? (
+                  <>
+                    <input
+                      type="text"
+                      value={profile.state || ''}
+                      onChange={(e) => handleChange('state', e.target.value)}
+                      className={errors.state ? 'input-error' : ''}
+                    />
+                    {errors.state && <span className="error-text">{errors.state}</span>}
+                  </>
+                ) : (
+                  profile.state
+                )}
+              </div>
+            </div>
+
+            <div className="info-item">
+              <div className="info-label">Pincode</div>
+              <div className="info-value">
+                {editing ? (
+                  <>
+                    <input
+                      type="text"
+                      value={profile.pincode || ''}
+                      onChange={(e) => {
+                        if (/^\d{0,6}$/.test(e.target.value)) {
+                          handleChange('pincode', e.target.value);
+                        }
+                      }}
+                      maxLength={6}
+                      className={errors.pincode ? 'input-error' : ''}
+                    />
+                    {errors.pincode && <span className="error-text">{errors.pincode}</span>}
+                  </>
+                ) : (
+                  profile.pincode
+                )}
+              </div>
+            </div>
+
+            <div className="info-item">
+              <div className="info-label">
+                <CreditCard size={16} />
+                GST Number
+              </div>
+              <div className="info-value">
+                {editing ? (
+                  <>
+                    <input
+                      type="text"
+                      value={profile.gstNumber || ''}
+                      onChange={(e) => handleChange('gstNumber', e.target.value.toUpperCase())}
+                      placeholder="22AAAAA0000A1Z5"
+                      maxLength={15}
+                      className={errors.gstNumber ? 'input-error' : ''}
+                    />
+                    {errors.gstNumber && <span className="error-text">{errors.gstNumber}</span>}
+                  </>
+                ) : (
+                  profile.gstNumber || 'Not provided'
+                )}
+              </div>
+            </div>
+
+            <div className="info-item">
+              <div className="info-label">PAN Number</div>
+              <div className="info-value">
+                {editing ? (
+                  <>
+                    <input
+                      type="text"
+                      value={profile.panNumber || ''}
+                      onChange={(e) => handleChange('panNumber', e.target.value.toUpperCase())}
+                      placeholder="ABCDE1234F"
+                      maxLength={10}
+                      className={errors.panNumber ? 'input-error' : ''}
+                    />
+                    {errors.panNumber && <span className="error-text">{errors.panNumber}</span>}
+                  </>
+                ) : (
+                  profile.panNumber || 'Not provided'
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -645,6 +552,8 @@ const StoreProfileCard = ({ storeType }) => {
 
 const DualStoreProfile = () => {
   const { user, loading: authLoading } = useAuth();
+  const [swasthikEditing, setSwasthikEditing] = useState(false);
+  const [laxmiEditing, setLaxmiEditing] = useState(false);
 
   if (authLoading) {
     return (
@@ -671,16 +580,35 @@ const DualStoreProfile = () => {
     );
   }
 
+  // Determine breadcrumb text based on editing states
+  let breadcrumbText = 'Store Profiles';
+  if (swasthikEditing && laxmiEditing) {
+    breadcrumbText = 'Edit Store Profiles';
+  } else if (swasthikEditing) {
+    breadcrumbText = 'Edit Swasthik Profile';
+  } else if (laxmiEditing) {
+    breadcrumbText = 'Edit Laxmi Profile';
+  }
+
   return (
     <div className="store-container">
-      <div className="page-header">
-        <h1>Store Profiles</h1>
-        <p>Manage your store information and settings</p>
+      <div className="store-page-header">
+        <div className='store-header-content'>
+          <div className='store-header-icon-title'>
+            <Building2 size={32} />
+            <h1>Store Profiles</h1>
+          </div>
+          <div className='store-header-breadcrumb'>
+            <span>Profile</span>
+            <span className='breadcrumb-separator'>&gt;</span>
+            <span>{breadcrumbText}</span>
+          </div>
+        </div>
       </div>
 
       <div className="profiles-grid">
-        <StoreProfileCard storeType="swasthik" />
-        <StoreProfileCard storeType="laxmi" />
+        <StoreProfileCard storeType="swasthik" onEditingChange={setSwasthikEditing} />
+        <StoreProfileCard storeType="laxmi" onEditingChange={setLaxmiEditing} />
       </div>
     </div>
   );

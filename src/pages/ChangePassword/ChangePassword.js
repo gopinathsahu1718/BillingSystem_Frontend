@@ -13,6 +13,13 @@ function ChangePassword() {
     newPassword: '',
     confirmPassword: '',
   });
+
+  const [showPasswords, setShowPasswords] = useState({
+    currentPassword: false,
+    newPassword: false,
+    confirmPassword: false,
+  });
+
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -25,6 +32,13 @@ function ChangePassword() {
     const { name, value } = e.target;
     setForm({ ...form, [name]: value });
     if (errors[name]) setErrors({ ...errors, [name]: '' });
+  };
+
+  const togglePasswordVisibility = (field) => {
+    setShowPasswords(prev => ({
+      ...prev,
+      [field]: !prev[field]
+    }));
   };
 
   const validate = () => {
@@ -149,7 +163,7 @@ function ChangePassword() {
                 <label>Current Password</label>
                 <div className="password-wrapper">
                   <input
-                    type="password"
+                    type={showPasswords.currentPassword ? "text" : "password"}
                     name="currentPassword"
                     value={form.currentPassword}
                     onChange={handleChange}
@@ -157,6 +171,14 @@ function ChangePassword() {
                     onBlur={handleBlur}
                     placeholder="Enter current password"
                   />
+                  <button
+                    type="button"
+                    className="toggle-password-btn"
+                    onClick={() => togglePasswordVisibility('currentPassword')}
+                    tabIndex="-1"
+                  >
+                    <i className={`bi ${showPasswords.currentPassword ? 'bi-eye-slash-fill' : 'bi-eye-fill'}`}></i>
+                  </button>
                 </div>
                 {errors.currentPassword && (
                   <span className="error-text">{errors.currentPassword}</span>
@@ -167,7 +189,7 @@ function ChangePassword() {
                 <label>New Password</label>
                 <div className="password-wrapper">
                   <input
-                    type="password"
+                    type={showPasswords.newPassword ? "text" : "password"}
                     name="newPassword"
                     value={form.newPassword}
                     onChange={handleChange}
@@ -175,6 +197,14 @@ function ChangePassword() {
                     onBlur={handleBlur}
                     placeholder="Enter new password"
                   />
+                  <button
+                    type="button"
+                    className="toggle-password-btn"
+                    onClick={() => togglePasswordVisibility('newPassword')}
+                    tabIndex="-1"
+                  >
+                    <i className={`bi ${showPasswords.newPassword ? 'bi-eye-slash-fill' : 'bi-eye-fill'}`}></i>
+                  </button>
                 </div>
                 {errors.newPassword && (
                   <span className="error-text">{errors.newPassword}</span>
@@ -185,7 +215,7 @@ function ChangePassword() {
                 <label>Confirm New Password</label>
                 <div className="password-wrapper">
                   <input
-                    type="password"
+                    type={showPasswords.confirmPassword ? "text" : "password"}
                     name="confirmPassword"
                     value={form.confirmPassword}
                     onChange={handleChange}
@@ -193,6 +223,14 @@ function ChangePassword() {
                     onBlur={handleBlur}
                     placeholder="Confirm new password"
                   />
+                  <button
+                    type="button"
+                    className="toggle-password-btn"
+                    onClick={() => togglePasswordVisibility('confirmPassword')}
+                    tabIndex="-1"
+                  >
+                    <i className={`bi ${showPasswords.confirmPassword ? 'bi-eye-slash-fill' : 'bi-eye-fill'}`}></i>
+                  </button>
                 </div>
                 {errors.confirmPassword && (
                   <span className="error-text">{errors.confirmPassword}</span>
@@ -202,7 +240,7 @@ function ChangePassword() {
               <div className="profile-actions mt-4">
                 <button
                   type="submit"
-                  className="profile-save-btn"
+                  className="save-profile-btn"
                   disabled={loading}
                 >
                   {loading ? 'Changing...' : 'Change Password'}
