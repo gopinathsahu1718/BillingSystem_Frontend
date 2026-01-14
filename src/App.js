@@ -19,6 +19,7 @@ import ProductSelection from './pages/ProductSelection/ProductSelection';
 import BillingReport from './pages/BillingReport/BillingReport';
 import Cart from './pages/Cart/Cart';
 import BillPage from './pages/BillPage/BillPage';
+import BillPageSwas from './pages/BillPageSwas/BillPageSwas';
 // import ImageToBase64Converter from './components/ImageToBase64Converter';
 
 
@@ -49,7 +50,8 @@ function AppContent() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-otp" element={<ResetOtp />} />
       <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/bill-page" element={<BillPage />} />
+      <Route path ="/bill-page" element={<BillPage />} />
+      <Route path ="/bill-page-swas" element={<BillPageSwas />} />
       {/* <Route path="/image-converter" element={<ImageToBase64Converter />} /> */}
 
       {/* Protected Routes */}
@@ -89,6 +91,8 @@ function AppContent() {
                     <Route path="/bill-page" element={<BillPage />} />
                     <Route path="/billing-report" element={<BillingReport />} />
                     <Route path="/cart" element={<Cart />} />
+                    <Route path="/bill-t" element={<BillFormat />} />
+                    <Route path="/bill-page-swas" element={<BillPageSwas />} />
 
                   </Routes>
                 </main>

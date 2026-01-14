@@ -2,11 +2,12 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "./BillingReport.css";
 import { useAuth } from "../../context/AuthContext";
-import { generateProfessionalBillPDF } from "../PDFGenerator";
+import { useNavigate } from "react-router-dom";
 
 const BillingReport = () => {
   const BASE_URL = "http://13.232.200.172/api";
   const { token } = useAuth();
+  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState("laxmi_bookstore");
   const [bills, setBills] = useState([]);
@@ -140,16 +141,59 @@ const BillingReport = () => {
     }
   };
 
-  const handleDownloadBill = async (bill) => {
-    try {
-      const category = getCategoryFromBill(bill);
-      await generateProfessionalBillPDF(bill, category, false, token);
-      showToast("success", "Success", "PDF downloaded successfully!");
-    } catch (error) {
-      console.error("Failed to download PDF:", error);
-      showToast("error", "Error", "Failed to download PDF");
-    }
-  };
+  // Replace the handleDownloadBill function in BillingReport.js with this:
+
+const handleDownloadBill = async (bill) => {
+  try {
+    showToast("info", "Please wait", "Generating PDF...");
+    
+    const category = getCategoryFromBill(bill);
+    const routePath = category === 'swasthik_enterprises' ? '/bill-page-swas' : '/bill-page';
+    
+    // Navigate to appropriate bill page with download flag
+    navigate(routePath, {
+      state: {
+        billData: {
+          billNo: bill.billNumber,
+          customerName: bill.customerName,
+          contactNo: bill.customerContact,
+          address: bill.customerAddress || '',
+          paymentMode: bill.paymentMode,
+          items: bill.items.map((item, index) => ({
+            id: index + 1,
+            name: item.productName || item.name || '',
+            hsn: item.hsn || '',
+            qty: item.quantity || item.qty || 0,
+            rate: parseFloat(item.unitPrice || item.price || item.rate || 0),
+            discount: parseFloat(item.discount || 0),
+            taxable: parseFloat(item.baseAmount || item.taxable || 0),
+            cgst: parseFloat(item.cgst || 0),
+            sgst: parseFloat(item.sgst || 0),
+            cgstRate: item.gst ? item.gst / 2 : 9,
+            sgstRate: item.gst ? item.gst / 2 : 9,
+            total: parseFloat(item.total || 0),
+            attributeName: item.attributeValue || item.attributeName || null
+          })),
+          grandTotal: parseFloat(bill.grandTotal),
+          summary: {
+            total: parseFloat(bill.grandTotal),
+            totalTax: parseFloat(bill.totalGST || 0),
+            subtotal: parseFloat(bill.subtotal || 0),
+            cgst: parseFloat(bill.cgst || 0),
+            sgst: parseFloat(bill.sgst || 0)
+          },
+          date: new Date(bill.createdAt).toLocaleDateString('en-IN'),
+          time: new Date(bill.createdAt).toLocaleTimeString('en-IN'),
+          store: category === 'swasthik_enterprises' ? 'swasthik' : 'laxmi'
+        },
+        autoDownload: true
+      }
+    });
+  } catch (error) {
+    console.error("Failed to download PDF:", error);
+    showToast("error", "Error", "Failed to download PDF");
+  }
+};
 
   const handleToggleBillStatus = async (billId, currentStatus) => {
     const action = currentStatus === 1 ? 'disable' : 'enable';
@@ -211,7 +255,14 @@ const BillingReport = () => {
               <i className="bi bi-receipt me-2"></i>
               Billing Reports
             </h2>
-            <div className="breadcrumbs">View and manage all billing records</div>
+            <div className="breadcrumbs">
+              <span>Report</span>
+              <span className="breadcrumb-separator">›</span>
+              <span className="breadcrumb-active">
+                {activeTab === "swasthik_enterprises" ? "Swasthik Enterprises" : "Laxmi Bookstore"}
+              </span>
+            </div>
+          
           </div>
           <div className="header-stats">
             <div className="stat-item">

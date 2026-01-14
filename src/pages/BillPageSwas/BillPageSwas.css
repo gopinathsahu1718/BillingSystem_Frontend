@@ -1,0 +1,605 @@
+/* Swastik Bill Page - Professional Navy Blue Theme */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Page Wrapper */
+.bill-page-wrapper-swas {
+  min-height: 100vh;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #f0f4f8;
+}
+
+/* Action Buttons */
+.action-buttons-swas {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+  position: sticky;
+  top: 20px;
+  z-index: 1000;
+  background: white;
+  padding: 15px 25px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.btn-print-swas,
+.btn-download-swas,
+.btn-back-swas {
+  padding: 12px 28px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-print-swas {
+  background: #1e3a8a;
+  color: white;
+}
+
+.btn-print-swas:hover {
+  background: #1e40af;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(30, 58, 138, 0.3);
+}
+
+.btn-download-swas {
+  background: #0f766e;
+  color: white;
+}
+
+.btn-download-swas:hover {
+  background: #0d9488;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(15, 118, 110, 0.3);
+}
+
+.btn-back-swas {
+  background: #64748b;
+  color: white;
+}
+
+.btn-back-swas:hover {
+  background: #475569;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(100, 116, 139, 0.3);
+}
+
+/* Bill Container */
+.bill-page-container-swas {
+  width: 210mm;
+  min-height: 297mm;
+  background: white;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  position: relative;
+}
+
+/* Bill Content */
+.bill-content-swas {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 10mm;
+  position: relative;
+  font-size: 9pt;
+  line-height: 1.3;
+}
+
+/* Header Strip */
+.header-strip-swas {
+  height: 2mm;
+  background: #1e3a8a;
+  margin-bottom: 3mm;
+}
+
+/* Header Section */
+.bill-header-swas {
+  margin-bottom: 3mm;
+}
+
+.header-layout-swas {
+  display: grid;
+  grid-template-columns: 28mm 1fr 28mm;
+  gap: 5mm;
+  align-items: center;
+}
+
+.logo-section-swas {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28mm;
+  height: 28mm;
+  border: 2px solid #1e3a8a;
+  border-radius: 4px;
+  padding: 3mm;
+  background: #f8fafc;
+}
+
+.ganesh-logo-swas,
+.goddess-logo-swas {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.header-center-swas {
+  text-align: center;
+  padding-top: 2mm;
+}
+
+.company-badge-swas {
+  display: inline-block;
+  background: #1e3a8a;
+  color: white;
+  padding: 2mm 10mm;
+  border-radius: 4px;
+  font-size: 16pt;
+  font-weight: 800;
+  letter-spacing: 2pt;
+  margin-bottom: 2mm;
+}
+
+.company-tagline-swas {
+  font-size: 8.5pt;
+  color: #475569;
+  margin: 2mm 0;
+  font-weight: 500;
+}
+
+.company-location-swas {
+  font-size: 8.5pt;
+  color: #475569;
+  margin: 2mm 0;
+  font-weight: 500;
+}
+
+.enterprise-section-swas {
+  margin-top: 4mm;
+}
+
+.enterprise-name-swas {
+  font-size: 22pt;
+  font-weight: 800;
+  color: #1e3a8a;
+  margin: 0 0 2mm 0;
+  letter-spacing: 2pt;
+}
+
+.invoice-label-swas {
+  display: inline-block;
+  background: #334155;
+  color: white;
+  padding: 2mm 10mm;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 10pt;
+  letter-spacing: 1pt;
+}
+
+/* Info Grid */
+.info-grid-swas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3mm;
+  margin-bottom: 3mm;
+}
+
+.company-info-card-swas,
+.bill-info-card-swas {
+  background: #f8fafc;
+  border: 2px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 4mm;
+}
+
+.info-row-swas {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5mm 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.info-row-swas:last-child {
+  border-bottom: none;
+}
+
+.info-key-swas {
+  font-weight: 700;
+  color: #1e3a8a;
+  font-size: 9pt;
+}
+
+.info-val-swas {
+  font-weight: 600;
+  color: #1e293b;
+  font-size: 9pt;
+}
+
+/* Customer Card */
+.customer-card-swas {
+  background: #f8fafc;
+  border: 2px solid #1e3a8a;
+  border-left: 4mm solid #1e3a8a;
+  border-radius: 4px;
+  padding: 3mm;
+  margin-bottom: 3mm;
+}
+
+.card-title-swas {
+  display: flex;
+  align-items: center;
+  gap: 2mm;
+  font-weight: 700;
+  font-size: 11pt;
+  color: #1e3a8a;
+  margin-bottom: 3mm;
+  padding-bottom: 2mm;
+  border-bottom: 2px solid #cbd5e1;
+}
+
+.title-icon-swas {
+  font-size: 14pt;
+}
+
+.customer-grid-swas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3mm;
+}
+
+.customer-field-swas {
+  display: flex;
+  align-items: center;
+  gap: 2mm;
+  padding: 2mm 0;
+}
+
+.customer-field-swas.full-width-swas {
+  grid-column: 1 / -1;
+}
+
+.field-label-swas {
+  font-weight: 600;
+  color: #475569;
+  min-width: 20mm;
+  font-size: 9pt;
+}
+
+.field-value-swas {
+  color: #1e293b;
+  font-weight: 500;
+  border-bottom: 1px solid #cbd5e1;
+  padding: 1mm 2mm;
+  flex: 1;
+  font-size: 9pt;
+}
+
+.payment-highlight-swas {
+  background: #1e3a8a;
+  color: white;
+  padding: 1mm 4mm;
+  border-radius: 4px;
+  border: none;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Items Table */
+.items-table-swas {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 3mm;
+  font-size: 7pt;
+  table-layout: fixed;
+  border: 2px solid #cbd5e1;
+}
+
+.items-table-swas thead {
+  background: #1e3a8a;
+  color: white;
+}
+
+.items-table-swas th {
+  padding: 2.5mm;
+  text-align: center;
+  font-weight: 700;
+  border: 1px solid #1e40af;
+  line-height: 1.2;
+  font-size: 8pt;
+}
+
+/* Column Widths */
+.col-serial-swas { width: 5mm; }
+.col-item-swas { width: 35mm; text-align: left !important; }
+.col-hsn-swas { width: 12mm; }
+.col-qty-swas { width: 8mm; }
+.col-rate-swas { width: 15mm; }
+.col-discount-swas { width: 15mm; }
+.col-taxable-swas { width: 16mm; }
+.col-tax-swas { 
+  width: 14mm; 
+  background: #334155 !important;
+}
+.col-total-swas { width: 18mm; }
+
+.tax-sub-swas {
+  font-size: 7pt;
+  font-weight: normal;
+  opacity: 0.95;
+}
+
+.tax-rate-swas {
+  font-size: 7pt;
+  color: #1e3a8a;
+  font-weight: 700;
+  display: block;
+  margin-top: 0.5mm;
+}
+
+.items-table-swas tbody tr {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.items-table-swas tbody tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+.items-table-swas tbody tr:hover {
+  background: #f1f5f9;
+}
+
+.items-table-swas td {
+  padding: 2mm;
+  border: 1px solid #e2e8f0;
+  line-height: 1.3;
+  vertical-align: middle;
+  font-size: 8pt;
+}
+
+.text-center-swas { text-align: center; }
+.text-left-swas { text-align: left; }
+.text-right-swas { text-align: right; }
+
+.item-attribute-swas {
+  font-size: 7.5pt;
+  color: #64748b;
+  margin-top: 1mm;
+  font-style: italic;
+}
+
+.total-cell-swas {
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+.empty-row-swas {
+  padding: 15mm !important;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+/* Total Section */
+.total-section-swas {
+  display: flex;
+  justify-content: flex-end;
+  margin: 3mm 0;
+}
+
+.total-box-swas {
+  background: #1e3a8a;
+  color: white;
+  padding: 3mm 10mm;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 5mm;
+}
+
+.total-text-swas {
+  font-size: 14pt;
+  font-weight: 700;
+}
+
+.total-value-swas {
+  font-size: 16pt;
+  font-weight: 900;
+  letter-spacing: 1pt;
+}
+
+/* Words Section */
+.words-section-swas {
+  display: flex;
+  align-items: center;
+  gap: 2mm;
+  padding: 2mm;
+  background: #f8fafc;
+  border: 2px solid #cbd5e1;
+  border-radius: 4px;
+  margin-bottom: 3mm;
+  font-size: 8pt;
+}
+
+.words-label-swas {
+  font-weight: 700;
+  color: #1e3a8a;
+  white-space: nowrap;
+}
+
+.words-text-swas {
+  flex: 1;
+  color: #1e293b;
+  font-weight: 600;
+}
+
+/* Bank Card */
+.bank-card-swas {
+  background: #f8fafc;
+  border: 2px solid #334155;
+  border-left: 4mm solid #334155;
+  border-radius: 4px;
+  padding: 3mm;
+  margin-bottom: 3mm;
+}
+
+.bank-grid-swas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3mm;
+}
+
+.bank-field-swas {
+  display: flex;
+  gap: 2mm;
+}
+
+/* Footer */
+.bill-footer-swas {
+  margin-top: 5mm;
+  padding-top: 3mm;
+  border-top: 2px solid #cbd5e1;
+}
+
+.footer-company-swas {
+  font-weight: 800;
+  color: #1e3a8a;
+  margin-bottom: 8mm;
+  text-align: left;
+  font-size: 10pt;
+  letter-spacing: 1pt;
+}
+
+.signature-box-swas {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 5mm;
+}
+
+.signature-line-swas {
+  border-top: 2px solid #1e3a8a;
+  padding-top: 2mm;
+  text-align: center;
+  min-width: 50mm;
+  font-size: 9pt;
+  color: #334155;
+  font-weight: 600;
+}
+
+.footer-notice-swas {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2mm;
+  padding: 3mm;
+  background: #fef3c7;
+  border: 2px solid #f59e0b;
+  border-radius: 4px;
+  font-size: 8pt;
+}
+
+.notice-icon-swas {
+  font-size: 11pt;
+  color: #f59e0b;
+}
+
+.notice-text-swas {
+  color: #92400e;
+  font-style: italic;
+  font-weight: 500;
+}
+
+/* Footer Strip */
+.footer-strip-swas {
+  height: 2mm;
+  background: #1e3a8a;
+  margin-top: 3mm;
+}
+
+/* Print Styles */
+@media print {
+  body {
+    margin: 0;
+    padding: 0;
+    background: white;
+  }
+
+  .bill-page-wrapper-swas {
+    padding: 0;
+    background: white;
+  }
+
+  .no-print,
+  .action-buttons-swas {
+    display: none !important;
+  }
+
+  .bill-page-container-swas {
+    width: 210mm;
+    min-height: 297mm;
+    box-shadow: none;
+    margin: 0;
+    page-break-after: always;
+  }
+
+  .bill-content-swas {
+    width: 210mm;
+    padding: 10mm;
+  }
+
+  .items-table-swas,
+  .customer-card-swas,
+  .bank-card-swas {
+    page-break-inside: avoid;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+}
+
+/* Responsive */
+@media screen and (max-width: 900px) {
+  .bill-page-wrapper-swas {
+    padding: 10px;
+  }
+
+  .bill-page-container-swas {
+    transform-origin: top center;
+    transform: scale(0.7);
+    margin-bottom: -80mm;
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .bill-page-container-swas {
+    transform: scale(0.5);
+    margin-bottom: -148mm;
+  }
+
+  .action-buttons-swas {
+    transform: scale(1.5);
+    transform-origin: top center;
+  }
+}

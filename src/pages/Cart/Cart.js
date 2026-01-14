@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import "./Cart.css";
 import { useAuth } from "../../context/AuthContext";
-import { generateProfessionalBillPDF } from "../PDFGenerator";
 
 const Cart = () => {
   const BASE_URL = "http://13.232.200.172/api";
   const { token } = useAuth();
+  const navigate = useNavigate();
 
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,7 +28,6 @@ const Cart = () => {
     paymentMode: "cash",
   });
 
-  // Validation state for showing red borders
   const [validationErrors, setValidationErrors] = useState({
     customerName: false,
     customerContact: false,
@@ -149,32 +149,25 @@ const Cart = () => {
     const { name, value } = e.target;
     
     if (name === "customerName") {
-      // Only allow letters, numbers, dots, and spaces
-      // Must start with a letter
       const sanitized = value.replace(/[^a-zA-Z.\s]/g, "");
       
-      // If there's content and it doesn't start with a letter, don't update
       if (sanitized && !/^[a-zA-Z]/.test(sanitized)) {
         return;
       }
       
-      // Limit to 30 characters
       setCustomerDetails({ 
         ...customerDetails, 
         [name]: sanitized.slice(0, 30) 
       });
       
-      // Clear validation error when user types
       setValidationErrors(prev => ({ ...prev, customerName: false }));
     } else if (name === "customerAddress") {
-      // Limit address to 40 characters
       setCustomerDetails({ 
         ...customerDetails, 
         [name]: value.slice(0, 40) 
       });
     } else if (name === "customerContact") {
       setCustomerDetails({ ...customerDetails, [name]: value });
-      // Clear validation error when user types
       setValidationErrors(prev => ({ ...prev, customerContact: false }));
     } else {
       setCustomerDetails({ ...customerDetails, [name]: value });
@@ -241,29 +234,87 @@ const Cart = () => {
     };
   };
 
+  const numberToWords = (num) => {
+    if (num === 0) return 'Zero';
+    
+    const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+    const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    const scales = ['', 'Thousand', 'Lakh', 'Crore'];
+
+    const convertHundreds = (n) => {
+      let result = '';
+      const hundred = Math.floor(n / 100);
+      const remainder = n % 100;
+
+      if (hundred > 0) {
+        result += ones[hundred] + ' Hundred';
+      }
+
+      if (remainder > 0) {
+        if (hundred > 0) result += ' ';
+        if (remainder < 10) {
+          result += ones[remainder];
+        } else if (remainder < 20) {
+          result += teens[remainder - 10];
+        } else {
+          const ten = Math.floor(remainder / 10);
+          const one = remainder % 10;
+          result += tens[ten];
+          if (one > 0) {
+            result += ' ' + ones[one];
+          }
+        }
+      }
+
+      return result;
+    };
+
+    if (num < 0) return 'Negative ' + numberToWords(-num);
+
+    let integerPart = Math.floor(num);
+    let decimalPart = Math.round((num - integerPart) * 100);
+
+    if (integerPart === 0) integerPart = 0;
+
+    let words = '';
+    let scaleIndex = 0;
+
+    while (integerPart > 0) {
+      if (integerPart % 1000 !== 0) {
+        words = convertHundreds(integerPart % 1000) + (scales[scaleIndex] ? ' ' + scales[scaleIndex] : '') + (words ? ' ' + words : '');
+      }
+      integerPart = Math.floor(integerPart / 1000);
+      scaleIndex++;
+    }
+
+    let result = words.trim();
+
+    if (decimalPart > 0) {
+      result += ' and ' + decimalPart + ' Paisa';
+    }
+
+    return result;
+  };
+
   const handleCreateBill = async () => {
-    // Reset validation errors
     const errors = {
       customerName: false,
       customerContact: false,
     };
 
-    // Validate customer name
     if (!customerDetails.customerName.trim()) {
       errors.customerName = true;
     }
 
-    // Validate customer contact
     if (!customerDetails.customerContact.trim()) {
       errors.customerContact = true;
     } else if (!/^[6-9]\d{9}$/.test(customerDetails.customerContact)) {
       errors.customerContact = true;
     }
 
-    // Set validation errors
     setValidationErrors(errors);
 
-    // If any errors, show single error message and stop
     if (errors.customerName || errors.customerContact) {
       showToast("error", "Error", "Please fill all the mandatory fields");
       return;
@@ -298,9 +349,89 @@ const Cart = () => {
 
         const billId = response.data.data.id;
 
-        // Display PDF in new window instead of downloading
-        await displayPDFInNewWindow(billId);
+        // Fetch the full bill details
+        const billResponse = await axios.get(`${BASE_URL}/bills/${billId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
+        if (billResponse.data && billResponse.data.success) {
+          const bill = billResponse.data.data;
+          const summary = calculateCartSummary();
+          
+          // Transform bill data for the bill page
+          const transformedItems = cartItems.map((item, index) => {
+            const price = item.attribute ? parseFloat(item.attribute.price) : parseFloat(item.product.price);
+            const subtotal = calculateItemSubtotal(item);
+            const gst = calculateItemGST(item);
+            
+            return {
+              id: index + 1,
+              name: item.product.name,
+              hsn: item.product.hsn || '',
+              quantity: item.quantity,
+              qty: item.quantity,
+              price: price,
+              rate: price,
+              discount: 0,
+              baseAmount: subtotal,
+              taxable: subtotal,
+              cgst: gst.cgst,
+              sgst: gst.sgst,
+              gst: parseFloat(item.product.gstRate || 0),
+              lineTotal: calculateItemTotal(item),
+              total: calculateItemTotal(item),
+              attributeName: item.attribute 
+                ? `${item.attribute.attributeName}: ${item.attribute.attributeValue}` 
+                : null
+            };
+          });
+
+          const billPageData = {
+            billNo: bill.billNumber,
+            date: new Date(bill.createdAt).toLocaleDateString('en-IN'),
+            time: new Date(bill.createdAt).toLocaleTimeString('en-IN'),
+            customerName: bill.customerName,
+            address: bill.customerAddress,
+            contactNo: bill.customerContact,
+            mobile: bill.customerContact,
+            paymentMode: bill.paymentMode,
+            items: transformedItems,
+            cart: transformedItems,
+            summary: {
+              total: summary.grandTotal,
+              totalTax: summary.totalGST,
+              totalDiscount: summary.discount,
+            },
+            grandTotal: summary.grandTotal,
+            rupeesInWords: numberToWords(summary.grandTotal) + ' Rupees Only',
+            store: categoryType === "laxmi_bookstore" ? "laxmi" : "swasthik",
+            bankDetails: {
+              bank: 'SBI, PKD',
+              accountNo: '11305057961',
+              ifsc: 'SBIN0000151',
+              branch: 'Paralakhemundi'
+            }
+          };
+
+          // Navigate to appropriate bill page based on category
+          if (categoryType === "laxmi_bookstore") {
+            navigate('/bill-page', { 
+              state: { 
+                billData: billPageData,
+                autoDownload: true 
+              } 
+            });
+          } else {
+            navigate('/bill-page-swas', { 
+              state: { 
+                billData: billPageData,
+                autoDownload: true 
+              } 
+            });
+          }
+        }
+
+        // Reset form
         setCustomerDetails({
           customerName: "",
           customerContact: "",
@@ -311,52 +442,15 @@ const Cart = () => {
           customerName: false,
           customerContact: false,
         });
+        
+        // Clear cart
         fetchCartItems();
       }
     } catch (error) {
       console.error("Failed to create bill:", error);
       const errorMsg = error.response?.data?.message || "Failed to create bill";
       showToast("error", "Error", errorMsg);
-    } finally {
       setGeneratingBill(false);
-    }
-  };
-
-  const displayPDFInNewWindow = async (billId) => {
-    try {
-      const response = await axios.get(`${BASE_URL}/bills/${billId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (response.data && response.data.success) {
-        const bill = response.data.data;
-
-        // Generate PDF and get the blob (pass token as 4th parameter)
-        const pdfBlob = await generateProfessionalBillPDF(bill, categoryType, true, token);
-
-        if (pdfBlob) {
-          // Create blob URL
-          const blobUrl = URL.createObjectURL(pdfBlob);
-
-          // Open in new window/tab
-          const pdfWindow = window.open(blobUrl, '_blank');
-
-          if (pdfWindow) {
-            pdfWindow.document.title = `Bill ${bill.billNumber}`;
-
-            pdfWindow.onload = () => {
-              // Cleanup blob URL after window loads
-              URL.revokeObjectURL(blobUrl);
-            };
-          } else {
-            showToast("error", "Error", "Please allow popups to view the PDF");
-            URL.revokeObjectURL(blobUrl);
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Failed to generate PDF:", error);
-      showToast("error", "Error", "Failed to generate PDF");
     }
   };
 

@@ -70,6 +70,8 @@ const BillPage = () => {
   const billRef = useRef();
   const location = useLocation();
   const navigate = useNavigate();
+  const publicUrl = process.env.PUBLIC_URL || '';
+  const downloadLockRef = useRef(false);
 
   // Get bill data from location state
   const billData = location.state?.billData || {
@@ -184,6 +186,10 @@ const BillPage = () => {
   };
 
   const handleDownload = async () => {
+    if (downloadLockRef.current) {
+      return;
+    }
+    downloadLockRef.current = true;
     try {
       // Import dynamically only when needed
       const html2canvas = (await import('html2canvas')).default;
@@ -202,8 +208,9 @@ const BillPage = () => {
 
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgProps = pdf.getImageProperties(imgData);
       const pdfWidth = 210; // A4 width in mm
-      const pdfHeight = 297; // A4 height in mm
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       
@@ -223,6 +230,8 @@ const BillPage = () => {
     } catch (error) {
       console.error('Failed to download PDF:', error);
       alert('Failed to download PDF. Please try again.');
+    } finally {
+      downloadLockRef.current = false;
     }
   };
 
@@ -252,7 +261,7 @@ const BillPage = () => {
           <div className="bill-header">
             <div className="header-layout">
               <div className="logo-section logo-left">
-                <img src="lord_ganesha.jpeg" alt="Ganesh" className="ganesh-logo" />
+                  <img src={`${publicUrl}/lord_ganesha.jpeg`} alt="Ganesh" className="ganesh-logo" crossOrigin="anonymous" />
               </div>
 
               <div className="header-center">
@@ -269,7 +278,7 @@ const BillPage = () => {
               </div>
 
               <div className="logo-section logo-right">
-                <img src="godess_laxmi.jpeg" alt="Goddess" className="goddess-logo" />
+                  <img src={`${publicUrl}/godess_laxmi.jpeg`} alt="Goddess" className="goddess-logo" crossOrigin="anonymous" />
               </div>
             </div>
           </div>
@@ -431,10 +440,10 @@ const BillPage = () => {
             <div className="signature-area">
               <div className="signature-line">Authorized Signatory</div>
             </div>
-            <div className="footer-note">
+            {/* <div className="footer-note">
               <span className="note-icon">⚠️</span>
               <span className="note-text">Composition Dealer not eligible for Collection on supply of services.</span>
-            </div>
+            </div> */}
           </div>
           <div className="header-border"></div>
         </div>
