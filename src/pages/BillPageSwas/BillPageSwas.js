@@ -113,31 +113,51 @@ const BillPageSwas = () => {
     rupeesInWords: rupeesInWords
   };
 
-  const displayAddress = finalBillData.address && finalBillData.address.trim() !== ''
+  const displayAddress = finalBillData.address && finalBillData.address.trim() !== '' && finalBillData.address !== 'N/A'
     ? finalBillData.address
     : 'N/A';
 
-  // Transform cart items to bill items format
+  // Transform cart items to bill items format with proper calculations
   const transformCartItems = (cartItems) => {
     if (!Array.isArray(cartItems)) return [];
-    return cartItems.map((item, index) => ({
-      id: index + 1,
-      name: item.name || '',
-      hsn: item.hsn || '',
-      qty: item.quantity || item.qty || 0,
-      rate: parseFloat(item.price || item.rate || 0),
-      discount: parseFloat(item.discount || 0),
-      taxable: parseFloat(item.baseAmount || item.taxable || 0),
-      cgst: parseFloat(item.cgst || 0),
-      sgst: parseFloat(item.sgst || 0),
-      cgstRate: item.gst ? item.gst / 2 : 9,
-      sgstRate: item.gst ? item.gst / 2 : 9,
-      total: parseFloat(
-        (item.lineTotal || item.total || 0) - 
-       ((item.lineTotal || item.total || 0) * (item.discount || 0)) / 100
-      ),
-      attributeName: item.attributeName || null
-    }));
+    return cartItems.map((item, index) => {
+      const rate = parseFloat(item.price || item.rate || 0);
+      const qty = parseInt(item.quantity || item.qty || 0);
+      const actualPrice = parseFloat(item.actualPrice || 0);
+      
+      // Calculate discount amount per unit
+      const discountPerUnit = actualPrice > rate ? actualPrice - rate : 0;
+      const totalDiscountAmount = discountPerUnit * qty;
+      
+      // Base amount (subtotal without GST) - this is the taxable amount
+      const taxableAmount = rate * qty;
+      
+      // GST calculations
+      const cgst = parseFloat(item.cgst || 0);
+      const sgst = parseFloat(item.sgst || 0);
+      const cgstRate = item.gst ? item.gst / 2 : (item.cgstRate || 9);
+      const sgstRate = item.gst ? item.gst / 2 : (item.sgstRate || 9);
+      
+      // Total = taxable + cgst + sgst
+      const total = taxableAmount + cgst + sgst;
+      
+      return {
+        id: index + 1,
+        name: item.name || '',
+        hsn: item.hsn || '',
+        qty: qty,
+        rate: rate,
+        actualPrice: actualPrice,
+        discount: totalDiscountAmount,
+        taxable: taxableAmount,
+        cgst: cgst,
+        sgst: sgst,
+        cgstRate: cgstRate,
+        sgstRate: sgstRate,
+        total: parseFloat(item.lineTotal || item.total || total),
+        attributeName: item.attributeName || null
+      };
+    });
   };
 
   // Ensure bankDetails always exists
@@ -154,6 +174,29 @@ const BillPageSwas = () => {
     : (finalBillData.cart && Array.isArray(finalBillData.cart)) 
     ? transformCartItems(finalBillData.cart) 
     : [];
+
+  const parseNumber = (value) => {
+    const numeric = parseFloat(value);
+    return Number.isNaN(numeric) ? 0 : numeric;
+  };
+
+  const getItemDiscountAmount = (item) => {
+    const rate = parseNumber(item.rate ?? item.price);
+    const actualPrice = parseNumber(
+      item.actualPrice ?? item.attribute?.actualPrice ?? item.attribute?.price
+    );
+    const quantity = parseInt(item.qty ?? item.quantity ?? 0, 10) || 0;
+    if (quantity === 0) return 0;
+    const perUnitDiscount = Math.max(actualPrice - rate, 0);
+    return parseFloat((perUnitDiscount * quantity).toFixed(2));
+  };
+
+  const getItemHSN = (item) => {
+    if (item.hsn) return item.hsn;
+    if (item.product?.hsn) return item.product.hsn;
+    if (item.attribute?.hsn) return item.attribute.hsn;
+    return 'N/A';
+  };
 
   // Auto-download PDF when autoDownload flag is true
   useEffect(() => {
@@ -182,63 +225,54 @@ const BillPageSwas = () => {
   };
 
   const handleDownload = async () => {
-  if (downloadLockRef.current) {
-    return;
-  }
-  downloadLockRef.current = true;
-  try {
-    // Import dynamically only when needed
-    const html2canvas = (await import('html2canvas')).default;
-    const jsPDF = (await import('jspdf')).default;
-
-    const element = billRef.current;
-    
-    // Get the actual dimensions of the bill content
-    const billWidth = element.offsetWidth;
-    const billHeight = element.offsetHeight;
-    
-    // Create canvas with high quality - FIX: Remove windowWidth/windowHeight
-    const canvas = await html2canvas(element, {
-      scale: 2,              // High quality
-      useCORS: true,         // Allow loading images
-      logging: false,        // Disable console logs
-      backgroundColor: '#ffffff', // White background
-      width: billWidth,      // Use actual element width
-      height: billHeight     // Use actual element height
-      // REMOVED: windowWidth and windowHeight - these were causing the squeeze!
-    });
-
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    
-    // Calculate dimensions to fit A4 properly
-    const imgProps = pdf.getImageProperties(imgData);
-    const pdfWidth = 210; // A4 width in mm
-    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
-    // Add image to PDF
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-    
-    // Generate filename with customer name
-    const customerName = finalBillData.customerName.replace(/\s+/g, '_') || 'Customer';
-    const billNo = finalBillData.billNo || 'BILL';
-    const fileName = `${billNo}-${customerName}.pdf`;
-    
-    pdf.save(fileName);
-
-    // If auto-download, navigate back to reports after download
-    if (autoDownload) {
-      setTimeout(() => {
-        navigate('/billing-report');
-      }, 1000);
+    if (downloadLockRef.current) {
+      return;
     }
-  } catch (error) {
-    console.error('Failed to download PDF:', error);
-    alert('Failed to download PDF. Please try again.');
-  } finally {
-    downloadLockRef.current = false;
-  }
-};
+    downloadLockRef.current = true;
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const jsPDF = (await import('jspdf')).default;
+
+      const element = billRef.current;
+      const billWidth = element.offsetWidth;
+      const billHeight = element.offsetHeight;
+      
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: billWidth,
+        height: billHeight
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = 210;
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      
+      const customerName = finalBillData.customerName.replace(/\s+/g, '_') || 'Customer';
+      const billNo = finalBillData.billNo || 'BILL';
+      const fileName = `${billNo}-${customerName}.pdf`;
+      
+      pdf.save(fileName);
+
+      if (autoDownload) {
+        setTimeout(() => {
+          navigate('/billing-report');
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Failed to download PDF:', error);
+      alert('Failed to download PDF. Please try again.');
+    } finally {
+      downloadLockRef.current = false;
+    }
+  };
 
   return (
     <div className="bill-page-wrapper-swas">
@@ -271,9 +305,9 @@ const BillPageSwas = () => {
 
               <div className="header-center-swas">
                 <div className="company-badge-swas">SRI GANESH</div>
-                <p className="company-tagline-swas">School, College Books, Office Stationaries & Order Suppliers</p>
+                {/* <p className="company-tagline-swas">School, College Books, Office Stationaries & Order Suppliers</p>
                 <p className="company-location-swas">Girls High School Road, Paralakhemundi</p>
-                
+                 */}
                 <div className="enterprise-section-swas">
                   <h1 className="enterprise-name-swas">SWASTIK ENTERPRISE</h1>
                   <div className="invoice-label-swas">TAX INVOICE</div>
@@ -358,8 +392,10 @@ const BillPageSwas = () => {
             </thead>
             <tbody>
               {items.length > 0 ? (
-                items.map((item) => (
-                  <tr key={item.id}>
+                items.map((item) => {
+                  const discountAmount = getItemDiscountAmount(item);
+                  return (
+                    <tr key={item.id}>
                     <td className="text-center-swas">{item.id}</td>
                     <td className="text-left-swas">
                       {item.name}
@@ -367,10 +403,10 @@ const BillPageSwas = () => {
                         <div className="item-attribute-swas">{item.attributeName}</div>
                       )}
                     </td>
-                    <td className="text-center-swas">{item.hsn}</td>
+                    <td className="text-center-swas">{getItemHSN(item)}</td>
                     <td className="text-center-swas">{item.qty}</td>
                     <td className="text-right-swas">₹{item.rate.toFixed(2)}</td>
-                    <td className="text-right-swas">₹{item.discount.toFixed(2)}</td>
+                    <td className="text-right-swas">₹{discountAmount.toFixed(2)}</td>
                     <td className="text-right-swas">₹{item.taxable.toFixed(2)}</td>
                     <td className="text-right-swas">
                       ₹{item.cgst.toFixed(2)}
@@ -383,8 +419,9 @@ const BillPageSwas = () => {
                       <span className="tax-rate-swas">({item.sgstRate}%)</span>
                     </td>
                     <td className="text-right-swas total-cell-swas">₹{item.total.toFixed(2)}</td>
-                  </tr>
-                ))
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan="10" className="text-center-swas empty-row-swas">

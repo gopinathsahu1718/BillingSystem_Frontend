@@ -89,6 +89,7 @@ const BillPage = () => {
     summary: { totalTax: 0, totalDiscount: 0 },
     grandTotal: 0,
     rupeesInWords: '',
+    store: 'laxmi',
     bankDetails: {
       bank: 'SBI, PKD',
       accountNo: '11305057961',
@@ -98,6 +99,9 @@ const BillPage = () => {
   };
 
   const autoDownload = location.state?.autoDownload || false;
+
+  // Determine if this is Laxmi Bookstore (no GST)
+  const isLaxmiBookstore = billData.store === 'laxmi';
 
   // Auto-generate date and time if not provided, and map mobile to contactNo
   const grandTotal = billData.summary?.total || billData.grandTotal || 0;
@@ -113,31 +117,42 @@ const BillPage = () => {
     rupeesInWords: rupeesInWords
   };
 
-  const displayAddress = finalBillData.address && finalBillData.address.trim() !== ''
+  const displayAddress = finalBillData.address && finalBillData.address.trim() !== '' && finalBillData.address !== 'N/A'
     ? finalBillData.address
     : 'N/A';
 
-  // Transform cart items to bill items format
+  // Transform cart items to bill items format with proper calculations
   const transformCartItems = (cartItems) => {
     if (!Array.isArray(cartItems)) return [];
-    return cartItems.map((item, index) => ({
-      id: index + 1,
-      name: item.name || '',
-      hsn: item.hsn || '',
-      qty: item.quantity || item.qty || 0,
-      rate: parseFloat(item.price || item.rate || 0),
-      discount: parseFloat(item.discount || 0),
-      taxable: parseFloat(item.baseAmount || item.taxable || 0),
-      cgst: parseFloat(item.cgst || 0),
-      sgst: parseFloat(item.sgst || 0),
-      cgstRate: item.gst ? item.gst / 2 : 9,
-      sgstRate: item.gst ? item.gst / 2 : 9,
-      total: parseFloat(
-        (item.lineTotal || item.total || 0) - 
-       ((item.lineTotal || item.total || 0) * (item.discount || 0)) / 100
-      ),
-      attributeName: item.attributeName || null
-    }));
+    return cartItems.map((item, index) => {
+      const rate = parseFloat(item.price || item.rate || 0);
+      const qty = parseInt(item.quantity || item.qty || 0);
+      const actualPrice = parseFloat(item.actualPrice || 0);
+      
+      // Calculate discount amount per unit
+      const discountPerUnit = actualPrice > rate ? actualPrice - rate : 0;
+      const totalDiscountAmount = discountPerUnit * qty;
+      
+      // Base amount (subtotal without GST)
+      const baseAmount = rate * qty;
+      
+      return {
+        id: index + 1,
+        name: item.name || '',
+        hsn: item.hsn || '',
+        qty: qty,
+        rate: rate,
+        actualPrice: actualPrice,
+        discount: totalDiscountAmount,
+        taxable: baseAmount,
+        cgst: parseFloat(item.cgst || 0),
+        sgst: parseFloat(item.sgst || 0),
+        cgstRate: item.gst ? item.gst / 2 : 9,
+        sgstRate: item.gst ? item.gst / 2 : 9,
+        total: parseFloat(item.lineTotal || item.total || baseAmount),
+        attributeName: item.attributeName || null
+      };
+    });
   };
 
   // Ensure bankDetails always exists
@@ -155,10 +170,32 @@ const BillPage = () => {
     ? transformCartItems(finalBillData.cart) 
     : [];
 
+  const parseNumber = (value) => {
+    const numeric = parseFloat(value);
+    return Number.isNaN(numeric) ? 0 : numeric;
+  };
+
+  const getItemDiscountAmount = (item) => {
+    const rate = parseNumber(item.rate ?? item.price);
+    const actualPrice = parseNumber(
+      item.actualPrice ?? item.attribute?.actualPrice ?? item.attribute?.price
+    );
+    const quantity = parseInt(item.qty ?? item.quantity ?? 0, 10) || 0;
+    if (quantity === 0) return 0;
+    const perUnitDiscount = Math.max(actualPrice - rate, 0);
+    return parseFloat((perUnitDiscount * quantity).toFixed(2));
+  };
+
+  const getItemHSN = (item) => {
+    if (item.hsn) return item.hsn;
+    if (item.product?.hsn) return item.product.hsn;
+    if (item.attribute?.hsn) return item.attribute.hsn;
+    return 'N/A';
+  };
+
   // Auto-download PDF when autoDownload flag is true
   useEffect(() => {
     if (autoDownload && billRef.current) {
-      // Wait for component to render completely
       setTimeout(() => {
         handleDownload();
       }, 1000);
@@ -170,79 +207,67 @@ const BillPage = () => {
   };
 
   const handlePrint = () => {
-    // Set document title for print dialog suggestion
     const originalTitle = document.title;
     const customerName = finalBillData.customerName.replace(/\s+/g, '_') || 'Customer';
     const billNo = finalBillData.billNo || 'BILL';
     document.title = `${billNo}-${customerName}`;
     
-    // Restore title after print dialog closes
     window.addEventListener('afterprint', () => {
       document.title = originalTitle;
     }, { once: true });
     
-    // Print the page
     window.print();
   };
 
   const handleDownload = async () => {
-  if (downloadLockRef.current) {
-    return;
-  }
-  downloadLockRef.current = true;
-  try {
-    // Import dynamically only when needed
-    const html2canvas = (await import('html2canvas')).default;
-    const jsPDF = (await import('jspdf')).default;
-
-    const element = billRef.current;
-    
-    // Get the actual dimensions of the bill content
-    const billWidth = element.offsetWidth;
-    const billHeight = element.offsetHeight;
-    
-    // Create canvas with high quality - FIX: Remove windowWidth/windowHeight
-    const canvas = await html2canvas(element, {
-      scale: 2,              // High quality
-      useCORS: true,         // Allow loading images
-      logging: false,        // Disable console logs
-      backgroundColor: '#ffffff', // White background
-      width: billWidth,      // Use actual element width
-      height: billHeight     // Use actual element height
-      // REMOVED: windowWidth and windowHeight - these were causing the squeeze!
-    });
-
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    
-    // Calculate dimensions to fit A4 properly
-    const imgProps = pdf.getImageProperties(imgData);
-    const pdfWidth = 210; // A4 width in mm
-    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
-    // Add image to PDF
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-    
-    // Generate filename with customer name
-    const customerName = finalBillData.customerName.replace(/\s+/g, '_') || 'Customer';
-    const billNo = finalBillData.billNo || 'BILL';
-    const fileName = `${billNo}-${customerName}.pdf`;
-    
-    pdf.save(fileName);
-
-    // If auto-download, navigate back to reports after download
-    if (autoDownload) {
-      setTimeout(() => {
-        navigate('/billing-report');
-      }, 1000);
+    if (downloadLockRef.current) {
+      return;
     }
-  } catch (error) {
-    console.error('Failed to download PDF:', error);
-    alert('Failed to download PDF. Please try again.');
-  } finally {
-    downloadLockRef.current = false;
-  }
-};
+    downloadLockRef.current = true;
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const jsPDF = (await import('jspdf')).default;
+
+      const element = billRef.current;
+      const billWidth = element.offsetWidth;
+      const billHeight = element.offsetHeight;
+      
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: billWidth,
+        height: billHeight
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = 210;
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      
+      const customerName = finalBillData.customerName.replace(/\s+/g, '_') || 'Customer';
+      const billNo = finalBillData.billNo || 'BILL';
+      const fileName = `${billNo}-${customerName}.pdf`;
+      
+      pdf.save(fileName);
+
+      if (autoDownload) {
+        setTimeout(() => {
+          navigate('/billing-report');
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Failed to download PDF:', error);
+      alert('Failed to download PDF. Please try again.');
+    } finally {
+      downloadLockRef.current = false;
+    }
+  };
 
   return (
     <div className="bill-page-wrapper">
@@ -280,9 +305,9 @@ const BillPage = () => {
                 
                 <div className="enterprise-block">
                   <h2 className="enterprise-title">
-                    {finalBillData.store === 'swasthik' ? 'SWASTIK ENTERPRISE' : 'LAKSHMI BOOKSTORE'}
+                    {isLaxmiBookstore ? 'LAKSHMI BOOKSTORE' : 'SWASTIK ENTERPRISE'}
                   </h2>
-                  <div className="bill-type-badge">TAX INVOICE</div>
+                  <div className="bill-type-badge">Composition Dealer</div>
                 </div>
               </div>
 
@@ -348,7 +373,7 @@ const BillPage = () => {
             </div>
           </div>
 
-          {/* Items Table */}
+          {/* Items Table - Shows all columns including HSN and Discount */}
           <table className="items-table">
             <thead>
               <tr>
@@ -358,9 +383,9 @@ const BillPage = () => {
                 <th className="col-qty">Qty</th>
                 <th className="col-rate">Rate (₹)</th>
                 <th className="col-discount">Discount (₹)</th>
-                <th className="col-taxable">Taxable (₹)</th>
-                <th className="col-tax">CGST<br/><span className="tax-percent">(%)</span></th>
-                <th className="col-tax">SGST<br/><span className="tax-percent">(%)</span></th>
+                {!isLaxmiBookstore && <th className="col-taxable">Taxable (₹)</th>}
+                {!isLaxmiBookstore && <th className="col-tax">CGST<br/><span className="tax-percent">(%)</span></th>}
+                {!isLaxmiBookstore && <th className="col-tax">SGST<br/><span className="tax-percent">(%)</span></th>}
                 <th className="col-total">Total (₹)</th>
               </tr>
             </thead>
@@ -377,27 +402,31 @@ const BillPage = () => {
                         </div>
                       )}
                     </td>
-                    <td className="text-center">{item.hsn}</td>
+                    <td className="text-center">{getItemHSN(item)}</td>
                     <td className="text-center">{item.qty}</td>
                     <td className="text-right">{item.rate.toFixed(2)}</td>
-                    <td className="text-right">{item.discount.toFixed(2)}</td>
-                    <td className="text-right">{item.taxable.toFixed(2)}</td>
-                    <td className="text-right">
-                      {item.cgst.toFixed(2)}
-                      <br/>
-                      <span className="tax-rate">({item.cgstRate}%)</span>
-                    </td>
-                    <td className="text-right">
-                      {item.sgst.toFixed(2)}
-                      <br/>
-                      <span className="tax-rate">({item.sgstRate}%)</span>
-                    </td>
+                    <td className="text-right">{getItemDiscountAmount(item).toFixed(2)}</td>
+                    {!isLaxmiBookstore && <td className="text-right">{item.taxable.toFixed(2)}</td>}
+                    {!isLaxmiBookstore && (
+                      <td className="text-right">
+                        {item.cgst.toFixed(2)}
+                        <br/>
+                        <span className="tax-rate">({item.cgstRate}%)</span>
+                      </td>
+                    )}
+                    {!isLaxmiBookstore && (
+                      <td className="text-right">
+                        {item.sgst.toFixed(2)}
+                        <br/>
+                        <span className="tax-rate">({item.sgstRate}%)</span>
+                      </td>
+                    )}
                     <td className="text-right">{item.total.toFixed(2)}</td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="10" className="text-center" style={{padding: '20px', color: '#999'}}>
+                  <td colSpan={isLaxmiBookstore ? "7" : "10"} className="text-center" style={{padding: '20px', color: '#999'}}>
                     No items in this bill
                   </td>
                 </tr>
@@ -445,14 +474,10 @@ const BillPage = () => {
 
           {/* Footer */}
           <div className="bill-footer">
-            <div className="footer-company">{finalBillData.store === 'swastik' ? 'SWASTIK ENTERPRISE' : 'LAKSHMI BOOKSTORE'}</div>
+            <div className="footer-company">{isLaxmiBookstore ? 'LAKSHMI BOOKSTORE' : 'SWASTIK ENTERPRISE'}</div>
             <div className="signature-area">
               <div className="signature-line">Authorized Signatory</div>
             </div>
-            {/* <div className="footer-note">
-              <span className="note-icon">⚠️</span>
-              <span className="note-text">Composition Dealer not eligible for Collection on supply of services.</span>
-            </div> */}
           </div>
           <div className="header-border"></div>
         </div>

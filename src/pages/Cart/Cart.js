@@ -33,6 +33,8 @@ const Cart = () => {
     customerContact: false,
   });
 
+  const BILLS_PER_PAGE = 8;
+
   useEffect(() => {
     fetchCartItems();
   }, []);
@@ -358,28 +360,44 @@ const Cart = () => {
           const bill = billResponse.data.data;
           const summary = calculateCartSummary();
           
-          // Transform bill data for the bill page
+          // Transform bill data for the bill page with proper calculations
           const transformedItems = cartItems.map((item, index) => {
             const price = item.attribute ? parseFloat(item.attribute.price) : parseFloat(item.product.price);
-            const subtotal = calculateItemSubtotal(item);
+            const actualPrice = item.attribute ? parseFloat(item.attribute.actualPrice || 0) : parseFloat(item.product.actualPrice || 0);
+            const quantity = item.quantity;
+            
+            // Calculate discount per unit and total discount
+            const discountPerUnit = actualPrice > price ? actualPrice - price : 0;
+            const totalDiscount = discountPerUnit * quantity;
+            
+            // Taxable amount = price × quantity (BEFORE adding GST)
+            const taxableAmount = price * quantity;
+            
+            // Calculate GST
             const gst = calculateItemGST(item);
+            
+            // Total = taxable + GST
+            const itemTotal = taxableAmount + gst.cgst + gst.sgst;
             
             return {
               id: index + 1,
               name: item.product.name,
-              hsn: item.product.hsn || '',
-              quantity: item.quantity,
-              qty: item.quantity,
+              hsn: item.product.hsn || 'N/A',  // Ensure HSN is always included
+              quantity: quantity,
+              qty: quantity,
               price: price,
               rate: price,
-              discount: 0,
-              baseAmount: subtotal,
-              taxable: subtotal,
+              actualPrice: actualPrice,
+              discount: totalDiscount,
+              baseAmount: taxableAmount,  // This is BEFORE GST
+              taxable: taxableAmount,     // This is BEFORE GST
               cgst: gst.cgst,
               sgst: gst.sgst,
               gst: parseFloat(item.product.gstRate || 0),
-              lineTotal: calculateItemTotal(item),
-              total: calculateItemTotal(item),
+              cgstRate: gst.cgst > 0 ? parseFloat(item.product.gstRate || 0) / 2 : 9,
+              sgstRate: gst.sgst > 0 ? parseFloat(item.product.gstRate || 0) / 2 : 9,
+              lineTotal: itemTotal,
+              total: itemTotal,
               attributeName: item.attribute 
                 ? `${item.attribute.attributeName}: ${item.attribute.attributeValue}` 
                 : null
@@ -401,6 +419,9 @@ const Cart = () => {
               total: summary.grandTotal,
               totalTax: summary.totalGST,
               totalDiscount: summary.discount,
+              subtotal: summary.subtotal,
+              cgst: summary.cgst,
+              sgst: summary.sgst
             },
             grandTotal: summary.grandTotal,
             rupeesInWords: numberToWords(summary.grandTotal) + ' Rupees Only',
