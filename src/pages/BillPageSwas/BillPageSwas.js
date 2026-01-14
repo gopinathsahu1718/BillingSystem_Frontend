@@ -182,52 +182,63 @@ const BillPageSwas = () => {
   };
 
   const handleDownload = async () => {
-    if (downloadLockRef.current) {
-      return;
+  if (downloadLockRef.current) {
+    return;
+  }
+  downloadLockRef.current = true;
+  try {
+    // Import dynamically only when needed
+    const html2canvas = (await import('html2canvas')).default;
+    const jsPDF = (await import('jspdf')).default;
+
+    const element = billRef.current;
+    
+    // Get the actual dimensions of the bill content
+    const billWidth = element.offsetWidth;
+    const billHeight = element.offsetHeight;
+    
+    // Create canvas with high quality - FIX: Remove windowWidth/windowHeight
+    const canvas = await html2canvas(element, {
+      scale: 2,              // High quality
+      useCORS: true,         // Allow loading images
+      logging: false,        // Disable console logs
+      backgroundColor: '#ffffff', // White background
+      width: billWidth,      // Use actual element width
+      height: billHeight     // Use actual element height
+      // REMOVED: windowWidth and windowHeight - these were causing the squeeze!
+    });
+
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    
+    // Calculate dimensions to fit A4 properly
+    const imgProps = pdf.getImageProperties(imgData);
+    const pdfWidth = 210; // A4 width in mm
+    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+    // Add image to PDF
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    
+    // Generate filename with customer name
+    const customerName = finalBillData.customerName.replace(/\s+/g, '_') || 'Customer';
+    const billNo = finalBillData.billNo || 'BILL';
+    const fileName = `${billNo}-${customerName}.pdf`;
+    
+    pdf.save(fileName);
+
+    // If auto-download, navigate back to reports after download
+    if (autoDownload) {
+      setTimeout(() => {
+        navigate('/billing-report');
+      }, 1000);
     }
-    downloadLockRef.current = true;
-    try {
-      const html2canvas = (await import('html2canvas')).default;
-      const jsPDF = (await import('jspdf')).default;
-
-      const element = billRef.current;
-      
-      // Match BillPage settings exactly
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        windowWidth: 794,
-        windowHeight: 1123,
-        backgroundColor: '#ffffff'
-      });
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgProps = pdf.getImageProperties(imgData);
-      const pdfWidth = 210;
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      
-      const customerName = finalBillData.customerName.replace(/\s+/g, '_') || 'Customer';
-      const billNo = finalBillData.billNo || 'BILL';
-      const fileName = `${billNo}-${customerName}.pdf`;
-      
-      pdf.save(fileName);
-
-      if (autoDownload) {
-        setTimeout(() => {
-          navigate('/billing-report');
-        }, 1000);
-      }
-    } catch (error) {
-      console.error('Failed to download PDF:', error);
-      alert('Failed to download PDF. Please try again.');
-    } finally {
-      downloadLockRef.current = false;
-    }
-  };
+  } catch (error) {
+    console.error('Failed to download PDF:', error);
+    alert('Failed to download PDF. Please try again.');
+  } finally {
+    downloadLockRef.current = false;
+  }
+};
 
   return (
     <div className="bill-page-wrapper-swas">
