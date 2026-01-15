@@ -8,6 +8,34 @@ const StoreManagement = () => {
   const BASE_URL = 'http://13.232.200.172/api/store';
   const STATIC_BASE = 'http://13.232.200.172';
   const { token } = useAuth();
+
+  // Helper function to construct proper image URLs
+  const getImageUrl = (thumbnailUrl) => {
+    if (!thumbnailUrl) return null;
+    
+    // If it's already a full URL (starts with http), return as is
+    if (thumbnailUrl.startsWith('http://') || thumbnailUrl.startsWith('https://')) {
+      return thumbnailUrl;
+    }
+    
+    // If it's a relative path, prepend the base URL
+    // Remove leading slash if present to avoid double slashes
+    const cleanPath = thumbnailUrl.startsWith('/') ? thumbnailUrl : `/${thumbnailUrl}`;
+    
+    return `${STATIC_BASE}${cleanPath}`;
+  };
+
+  const sanitizeSkuInput = (rawValue) => {
+    const value = rawValue || "";
+    const stripped = value.replace(/[^a-zA-Z0-9_-]/g, "");
+    return {
+      formatted: stripped.toUpperCase(),
+      hadInvalidChars: value !== stripped,
+    };
+  };
+
+  const SKU_INVALID_MESSAGE = "SKU include only letters, numbers, -, _";
+
 const PREDEFINED_CATEGORIES = [
   { label: "Laxmi Bookstore", value: "laxmi_bookstore", displayName: "Laxmi Bookstore" },
   { label: "Swasthik Enterprises", value: "swasthik_enterprises", displayName: "Swasthik Enterprises" }
@@ -151,7 +179,7 @@ const handlePredefinedCategoryChange = (selectedOption) => {
           description: subcat.description || "",
           categoryId: subcat.categoryId,
           categoryName: subcat.category?.name || 'Uncategorized',
-          thumbnail: subcat.thumbnailImageUrl || null,
+          thumbnail: getImageUrl(subcat.thumbnailImageUrl),
           date: new Date(subcat.createdAt).toLocaleDateString(),
         }));
       }
@@ -179,7 +207,7 @@ const handlePredefinedCategoryChange = (selectedOption) => {
           actualPrice: product.actualPrice ? product.actualPrice.toString() : "",
           stock: product.stock || 0,
           unit: product.unit || "piece",
-          thumbnail: product.thumbnailImageUrl || null,
+          thumbnail: getImageUrl(product.thumbnailImageUrl),
           attributes: product.attributes || [],
           date: new Date(product.createdAt).toLocaleDateString(),
         }));
@@ -202,9 +230,15 @@ const handlePredefinedCategoryChange = (selectedOption) => {
   // Cleanup object URLs on unmount
   useEffect(() => {
     return () => {
-      if (categoryForm.thumbnailPreview) URL.revokeObjectURL(categoryForm.thumbnailPreview);
-      if (subcategoryForm.thumbnailPreview) URL.revokeObjectURL(subcategoryForm.thumbnailPreview);
-      if (productForm.thumbnailPreview) URL.revokeObjectURL(productForm.thumbnailPreview);
+      if (categoryForm.thumbnailPreview && categoryForm.thumbnailPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(categoryForm.thumbnailPreview);
+      }
+      if (subcategoryForm.thumbnailPreview && subcategoryForm.thumbnailPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(subcategoryForm.thumbnailPreview);
+      }
+      if (productForm.thumbnailPreview && productForm.thumbnailPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(productForm.thumbnailPreview);
+      }
     };
   }, [categoryForm.thumbnailPreview, subcategoryForm.thumbnailPreview, productForm.thumbnailPreview]);
 
@@ -233,9 +267,15 @@ const handlePredefinedCategoryChange = (selectedOption) => {
               id: cat.id,
               name: cat.name,
               description: cat.description || "",
-              thumbnail: cat.thumbnailImageUrl || null,
+              thumbnail: getImageUrl(cat.thumbnailImageUrl),
               date: new Date(cat.createdAt).toLocaleDateString(),
             }));
+            
+            // Debug: Log first category thumbnail
+            if (fetchedCategories.length > 0) {
+              console.log('First category thumbnail URL:', fetchedCategories[0].thumbnail);
+              console.log('Raw API thumbnail:', catResponse.data.data[0]?.thumbnailImageUrl);
+            }
           }
         } catch (catError) {
           console.error("Failed to fetch categories:", catError);
@@ -284,7 +324,7 @@ const handlePredefinedCategoryChange = (selectedOption) => {
         return;
       }
       const file = files[0];
-      if (categoryForm.thumbnailPreview) {
+      if (categoryForm.thumbnailPreview && categoryForm.thumbnailPreview.startsWith('blob:')) {
         URL.revokeObjectURL(categoryForm.thumbnailPreview);
       }
       const preview = URL.createObjectURL(file);
@@ -313,7 +353,7 @@ const handlePredefinedCategoryChange = (selectedOption) => {
         return;
       }
       const file = files[0];
-      if (subcategoryForm.thumbnailPreview) {
+      if (subcategoryForm.thumbnailPreview && subcategoryForm.thumbnailPreview.startsWith('blob:')) {
         URL.revokeObjectURL(subcategoryForm.thumbnailPreview);
       }
       const preview = URL.createObjectURL(file);
@@ -346,7 +386,7 @@ const handlePredefinedCategoryChange = (selectedOption) => {
         return;
       }
       const file = files[0];
-      if (productForm.thumbnailPreview) {
+      if (productForm.thumbnailPreview && productForm.thumbnailPreview.startsWith('blob:')) {
         URL.revokeObjectURL(productForm.thumbnailPreview);
       }
       const preview = URL.createObjectURL(file);
@@ -356,6 +396,25 @@ const handlePredefinedCategoryChange = (selectedOption) => {
         setProductForm({ ...productForm, [name]: value });
         setProductInvalid((prev) => ({ ...prev, [name]: false }));
       }
+    } else if (name === "hsn") {
+      const sanitized = value.replace(/[^0-9]/g, '');
+      if (sanitized && /^0+$/.test(sanitized)) {
+        showToast("error", "Invalid HSN", "HSN cannot consist of only zeros.");
+        setProductForm({ ...productForm, hsn: '' });
+        setProductInvalid((prev) => ({ ...prev, hsn: true }));
+        return;
+      }
+      if (sanitized.length <= 8) {
+        setProductForm({ ...productForm, hsn: sanitized });
+        setProductInvalid((prev) => ({ ...prev, hsn: false }));
+      }
+    } else if (name === "sku") {
+      const { formatted, hadInvalidChars } = sanitizeSkuInput(value);
+      if (value && hadInvalidChars) {
+        showToast("error", "Invalid SKU", SKU_INVALID_MESSAGE);
+      }
+      setProductForm({ ...productForm, sku: formatted });
+      setProductInvalid((prev) => ({ ...prev, sku: false }));
     } else {
       setProductForm({ ...productForm, [name]: value });
       setProductInvalid((prev) => ({ ...prev, [name]: false }));
@@ -369,6 +428,24 @@ const handlePredefinedCategoryChange = (selectedOption) => {
       if (/^\d*\.?\d*$/.test(value)) {
         setAttributeForm({ ...attributeForm, [name]: value });
       }
+    } else if (name === "attributeName") {
+      const sanitized = value.replace(/[^a-zA-Z]/g, '');
+      if (value && sanitized !== value) {
+        showToast("error", "Invalid Attribute Type", "Attribute Type can contain only letters.");
+      }
+      setAttributeForm({ ...attributeForm, attributeName: sanitized });
+    } else if (name === "attributeValue") {
+      const sanitized = value.replace(/[^a-zA-Z0-9]/g, '');
+      if (value && sanitized !== value) {
+        showToast("error", "Invalid Attribute Value", "Attribute Value can contain only letters and numbers.");
+      }
+      setAttributeForm({ ...attributeForm, attributeValue: sanitized });
+    } else if (name === "sku") {
+      const { formatted, hadInvalidChars } = sanitizeSkuInput(value);
+      if (value && hadInvalidChars) {
+        showToast("error", "Invalid SKU", SKU_INVALID_MESSAGE);
+      }
+      setAttributeForm({ ...attributeForm, sku: formatted });
     } else {
       setAttributeForm({ ...attributeForm, [name]: value });
     }
@@ -398,7 +475,7 @@ const handlePredefinedCategoryChange = (selectedOption) => {
       price: parseFloat(attributeForm.price),
       actualPrice: attributeForm.actualPrice ? parseFloat(attributeForm.actualPrice) : null,
       stock: attributeForm.stock ? parseInt(attributeForm.stock) : 0,
-      sku: attributeForm.sku.trim(),
+      sku: attributeForm.sku.trim().toUpperCase(),
     };
 
     if (editingAttributeIndex !== null) {
@@ -441,7 +518,7 @@ const handlePredefinedCategoryChange = (selectedOption) => {
       price: attr.price.toString(),
       actualPrice: attr.actualPrice ? attr.actualPrice.toString() : "",
       stock: attr.stock ? attr.stock.toString() : "",
-      sku: attr.sku,
+      sku: attr.sku ? attr.sku.toUpperCase() : "",
     });
     setEditingAttributeIndex(index);
     setShowAttributeForm(true);
@@ -554,7 +631,7 @@ const handlePredefinedCategoryChange = (selectedOption) => {
           id: updatedCategory.id || editCategory?.id,
           name: updatedCategory.name,
           description: updatedCategory.description || "",
-          thumbnail: updatedCategory.thumbnailImageUrl || categoryForm.thumbnailPreview || null,
+          thumbnail: getImageUrl(updatedCategory.thumbnailImageUrl) || categoryForm.thumbnailPreview || null,
           date: new Date(updatedCategory.updatedAt || updatedCategory.createdAt).toLocaleDateString(),
         };
 
@@ -589,18 +666,14 @@ const handlePredefinedCategoryChange = (selectedOption) => {
   const handleEditCategory = async (category) => {
     setShowCategoryForm(true);
     setEditCategory(category);
-const matchingPredefined = PREDEFINED_CATEGORIES.find(
-  predef => predef.value.toLowerCase() === category.name.toLowerCase()
-);
-    let originalFilename = "Current thumbnail";
-    if (category.thumbnail) {
-      const urlParts = category.thumbnail.split('/');
-      originalFilename = urlParts[urlParts.length - 1] || "Current thumbnail";
-    }
+    const matchingPredefined = PREDEFINED_CATEGORIES.find(
+      predef => predef.value.toLowerCase() === category.name.toLowerCase()
+    );
+    
     setCategoryForm({
       name: category.name || "",
       description: category.description || "",
-      thumbnailFile: category.thumbnail ? { name: originalFilename } : null,
+      thumbnailFile: null,
       thumbnailPreview: category.thumbnail || null,
       selectedPredefinedCategory: matchingPredefined || null
     });
@@ -674,7 +747,7 @@ const matchingPredefined = PREDEFINED_CATEGORIES.find(
           description: updatedSubcategory.description || "",
           categoryId: updatedSubcategory.categoryId,
           categoryName: categoryName,
-          thumbnail: updatedSubcategory.thumbnailImageUrl || subcategoryForm.thumbnailPreview || null,
+          thumbnail: getImageUrl(updatedSubcategory.thumbnailImageUrl) || subcategoryForm.thumbnailPreview || null,
           date: new Date(updatedSubcategory.updatedAt || updatedSubcategory.createdAt).toLocaleDateString(),
         };
 
@@ -710,16 +783,11 @@ const matchingPredefined = PREDEFINED_CATEGORIES.find(
     setShowSubcategoryForm(true);
     setEditSubcategory(subcategory);
 
-    let originalFilename = "Current thumbnail";
-    if (subcategory.thumbnail) {
-      const urlParts = subcategory.thumbnail.split('/');
-      originalFilename = urlParts[urlParts.length - 1] || "Current thumbnail";
-    }
     setSubcategoryForm({
       name: subcategory.name || "",
       description: subcategory.description || "",
       categoryId: subcategory.categoryId,
-      thumbnailFile: subcategory.thumbnail ? { name: originalFilename } : null,
+      thumbnailFile: null,
       thumbnailPreview: subcategory.thumbnail || null
     });
   };
@@ -1020,7 +1088,7 @@ const matchingPredefined = PREDEFINED_CATEGORIES.find(
       description: product.description || "",
       categoryId: product.categoryId,
       subCategoryId: product.subCategoryId,
-      sku: product.sku || "",
+      sku: (product.sku || "").toUpperCase(),
       hsn: product.hsn || "",
       gstRate: product.gstRate || "",
       price: product.price || "",
@@ -1211,6 +1279,12 @@ const matchingPredefined = PREDEFINED_CATEGORIES.find(
       color: "#111827",
       border: "1px solid #9ca3af",
       zIndex: 100,
+      maxHeight: "260px",
+    }),
+    menuList: (provided) => ({
+      ...provided,
+      maxHeight: "240px",
+      overflowY: "auto",
     }),
     menuPortal: (provided) => ({
       ...provided,
@@ -1882,10 +1956,10 @@ const matchingPredefined = PREDEFINED_CATEGORIES.find(
                           placeholder="e.g., PEN-REY-001"
                           value={productForm.sku}
                           onChange={handleProductOtherChange}
-                          maxLength={50}
+                          maxLength={30}
                           className={productInvalid.sku ? 'input-invalid' : ''}
                         />
-                        <span className="char-count">{productForm.sku.length}/50</span>
+                        <span className="char-count">{productForm.sku.length}/30</span>
                       </div>
                     </div>
 
@@ -2174,8 +2248,9 @@ const matchingPredefined = PREDEFINED_CATEGORIES.find(
                               placeholder="e.g., PEN-REY-001-20G"
                               value={attributeForm.sku}
                               onChange={handleAttributeChange}
-                              maxLength={50}
+                              maxLength={30}
                             />
+                            <span className="char-count">{attributeForm.sku.length}/30</span>
                           </div>
                         </div>
 

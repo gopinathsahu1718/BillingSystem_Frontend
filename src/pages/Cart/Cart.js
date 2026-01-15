@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import "./Cart.css";
@@ -6,6 +6,7 @@ import { useAuth } from "../../context/AuthContext";
 
 const Cart = () => {
   const BASE_URL = "http://13.232.200.172/api";
+  const STORE_BASE_URL = "http://13.232.200.172/api/store";
   const { token } = useAuth();
   const navigate = useNavigate();
 
@@ -20,6 +21,7 @@ const Cart = () => {
     currentQuantity: 1,
     newQuantity: 1,
   });
+  const [storeProducts, setStoreProducts] = useState([]);
 
   const [customerDetails, setCustomerDetails] = useState({
     customerName: "",
@@ -34,10 +36,6 @@ const Cart = () => {
   });
 
   const BILLS_PER_PAGE = 8;
-
-  useEffect(() => {
-    fetchCartItems();
-  }, []);
 
   const fetchCartItems = async () => {
     try {
@@ -62,6 +60,29 @@ const Cart = () => {
       setLoading(false);
     }
   };
+
+  const fetchStoreProducts = async () => {
+    if (!token) return;
+
+    try {
+      const response = await axios.get(`${STORE_BASE_URL}/products`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.data?.success) {
+        setStoreProducts(response.data.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch store products:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (token) {
+      fetchCartItems();
+      fetchStoreProducts();
+    }
+  }, [token]);
 
   const showToast = (type, title, description) => {
     const id = Date.now();
@@ -147,6 +168,46 @@ const Cart = () => {
     }
   };
 
+  const storeProductsMap = useMemo(() => {
+    const map = {};
+    storeProducts.forEach((product) => {
+      if (product && product.id) {
+        map[product.id] = product;
+      }
+    });
+    return map;
+  }, [storeProducts]);
+
+  const resolveHSNFromStore = (item) => {
+    const productId = item.product?.id || item.productId;
+    if (!productId) return null;
+
+    const storeProduct = storeProductsMap[productId];
+    if (!storeProduct) return null;
+
+    const attributeId = item.attribute?.id || item.attributeId;
+    if (attributeId && Array.isArray(storeProduct.attributes)) {
+      const variant = storeProduct.attributes.find((attr) => attr.id === attributeId);
+      if (variant?.hsn) {
+        return variant.hsn;
+      }
+    }
+
+    return storeProduct.hsn || null;
+  };
+
+  const sanitizeContactValue = (value) => value.replace(/[^0-9]/g, '').slice(0, 10);
+
+  const capitalizeFirstLetter = (text) => {
+    if (!text) return "";
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  };
+
+  const isUniformDigits = (value) => {
+    if (!value) return false;
+    return value.split('').every((digit) => digit === value[0]);
+  };
+
   const handleCustomerFormChange = (e) => {
     const { name, value } = e.target;
     
@@ -159,17 +220,21 @@ const Cart = () => {
       
       setCustomerDetails({ 
         ...customerDetails, 
-        [name]: sanitized.slice(0, 30) 
+        [name]: capitalizeFirstLetter(sanitized).slice(0, 30) 
       });
       
       setValidationErrors(prev => ({ ...prev, customerName: false }));
     } else if (name === "customerAddress") {
       setCustomerDetails({ 
         ...customerDetails, 
-        [name]: value.slice(0, 40) 
+        [name]: capitalizeFirstLetter(value).slice(0, 40) 
       });
     } else if (name === "customerContact") {
-      setCustomerDetails({ ...customerDetails, [name]: value });
+      const sanitizedContact = sanitizeContactValue(value);
+      if (sanitizedContact.length === 10 && isUniformDigits(sanitizedContact)) {
+        showToast("error", "Invalid number", "Input valid number");
+      }
+      setCustomerDetails({ ...customerDetails, [name]: sanitizedContact });
       setValidationErrors(prev => ({ ...prev, customerContact: false }));
     } else {
       setCustomerDetails({ ...customerDetails, [name]: value });
@@ -309,9 +374,11 @@ const Cart = () => {
       errors.customerName = true;
     }
 
-    if (!customerDetails.customerContact.trim()) {
+    const contactValue = sanitizeContactValue(customerDetails.customerContact);
+    const contactPattern = /^[6-9]\d{9}$/;
+    if (!contactValue) {
       errors.customerContact = true;
-    } else if (!/^[6-9]\d{9}$/.test(customerDetails.customerContact)) {
+    } else if (!contactPattern.test(contactValue) || isUniformDigits(contactValue)) {
       errors.customerContact = true;
     }
 
@@ -378,11 +445,13 @@ const Cart = () => {
             
             // Total = taxable + GST
             const itemTotal = taxableAmount + gst.cgst + gst.sgst;
-            
+
+            const hsnFromStore = resolveHSNFromStore(item);
+
             return {
               id: index + 1,
               name: item.product.name,
-              hsn: item.product.hsn || 'N/A',  // Ensure HSN is always included
+              hsn: hsnFromStore || item.product.hsn || 'N/A',
               quantity: quantity,
               qty: quantity,
               price: price,

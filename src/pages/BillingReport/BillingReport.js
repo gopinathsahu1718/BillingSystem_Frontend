@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import "./BillingReport.css";
 import { useAuth } from "../../context/AuthContext";
@@ -21,15 +21,22 @@ const BillingReport = () => {
     startDate: "",
     endDate: "",
   });
+  const earliestAllowedDate = "2026-01-10";
+  const todayIsoString = new Date().toISOString().split("T")[0];
   const [viewingBill, setViewingBill] = useState(null);
   const [showBillModal, setShowBillModal] = useState(false);
+  const [pendingToggleBill, setPendingToggleBill] = useState(null);
   const [toasts, setToasts] = useState([]);
+  const [storeProducts, setStoreProducts] = useState([]);
 
   const BILLS_PER_PAGE = 8;
 
   useEffect(() => {
-    fetchBills();
-  }, []);
+    if (token) {
+      fetchBills();
+      fetchStoreProducts();
+    }
+  }, [token]);
 
   useEffect(() => {
     filterBills();
@@ -51,6 +58,57 @@ const BillingReport = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchStoreProducts = async () => {
+    if (!token) return;
+
+    try {
+      const response = await axios.get(`${BASE_URL}/store/products`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.data?.success) {
+        setStoreProducts(response.data.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch store products:", error);
+    }
+  };
+
+  const storeProductsMap = useMemo(() => {
+    const map = {};
+    storeProducts.forEach((product) => {
+      if (!product || !product.id) return;
+      map[product.id] = product;
+    });
+    return map;
+  }, [storeProducts]);
+
+  const resolveHSNFromStore = (item) => {
+    const productId = item.product?.id || item.productId;
+    if (!productId) return null;
+
+    const storeProduct = storeProductsMap[productId];
+    if (!storeProduct) return null;
+
+    const attributeId = item.attribute?.id || item.attributeId;
+    if (attributeId && Array.isArray(storeProduct.attributes)) {
+      const variant = storeProduct.attributes.find((attr) => attr.id === attributeId);
+      if (variant?.hsn) {
+        return variant.hsn;
+      }
+    }
+
+    return storeProduct.hsn || null;
+  };
+
+  const enrichBillItemsWithHSN = (items = []) => {
+    if (!Array.isArray(items)) return [];
+    return items.map((item) => ({
+      ...item,
+      hsn: item.hsn || resolveHSNFromStore(item) || (item.product?.hsn || item.hsn || ""),
+    }));
   };
 
   const filterBills = () => {
@@ -132,7 +190,8 @@ const BillingReport = () => {
       });
 
       if (response.data && response.data.success) {
-        setViewingBill(response.data.data);
+        const bill = response.data.data;
+        setViewingBill({ ...bill, items: enrichBillItemsWithHSN(bill.items) });
         setShowBillModal(true);
       }
     } catch (error) {
@@ -159,7 +218,7 @@ const handleDownloadBill = async (bill) => {
           contactNo: bill.customerContact,
           address: bill.customerAddress || '',
           paymentMode: bill.paymentMode,
-          items: bill.items.map((item, index) => ({
+          items: enrichBillItemsWithHSN(bill.items).map((item, index) => ({
             id: index + 1,
             name: item.productName || item.name || '',
             hsn: item.hsn || '',
@@ -197,11 +256,6 @@ const handleDownloadBill = async (bill) => {
 
   const handleToggleBillStatus = async (billId, currentStatus) => {
     const action = currentStatus === 1 ? 'disable' : 'enable';
-    const confirmMsg = currentStatus === 1
-      ? 'Are you sure you want to disable this bill?'
-      : 'Are you sure you want to enable this bill?';
-
-    if (!window.confirm(confirmMsg)) return;
 
     try {
       const response = await axios.put(
@@ -218,6 +272,20 @@ const handleDownloadBill = async (bill) => {
       console.error(`Failed to ${action} bill:`, error);
       showToast("error", "Error", `Failed to ${action} bill`);
     }
+  };
+
+  const promptToggleBillStatus = (bill) => {
+    setPendingToggleBill({ billId: bill.id, billNumber: bill.billNumber, currentStatus: bill.isActive });
+  };
+
+  const cancelToggleBillStatus = () => {
+    setPendingToggleBill(null);
+  };
+
+  const confirmToggleBillStatus = () => {
+    if (!pendingToggleBill) return;
+    handleToggleBillStatus(pendingToggleBill.billId, pendingToggleBill.currentStatus);
+    setPendingToggleBill(null);
   };
 
   const handleResetFilters = () => {
@@ -313,6 +381,8 @@ const handleDownloadBill = async (bill) => {
             value={dateFilter.startDate}
             onChange={(e) => setDateFilter({ ...dateFilter, startDate: e.target.value })}
             placeholder="From"
+            min={earliestAllowedDate}
+            max={todayIsoString}
           />
           <label className="date-filter-label">From</label>
         </div>
@@ -324,6 +394,8 @@ const handleDownloadBill = async (bill) => {
             value={dateFilter.endDate}
             onChange={(e) => setDateFilter({ ...dateFilter, endDate: e.target.value })}
             placeholder="To"
+            min={earliestAllowedDate}
+            max={todayIsoString}
           />
           <label className="date-filter-label">To</label>
         </div>
@@ -444,7 +516,7 @@ const handleDownloadBill = async (bill) => {
                         </button>
                         <button
                           className={`btn-toggle-small ${bill.isActive === 1 ? 'btn-disable' : 'btn-enable'}`}
-                          onClick={() => handleToggleBillStatus(bill.id, bill.isActive)}
+                          onClick={() => promptToggleBillStatus(bill)}
                           title={bill.isActive === 1 ? 'Disable Bill' : 'Enable Bill'}
                         >
                           <i className={`bi ${bill.isActive === 1 ? 'bi-x-circle' : 'bi-check-circle'}`}></i>
@@ -524,6 +596,7 @@ const handleDownloadBill = async (bill) => {
                       <tr>
                         <th>#</th>
                         <th>Item</th>
+                        <th>HSN</th>
                         <th>Qty</th>
                         <th>Price</th>
                         <th>Total</th>
@@ -539,6 +612,7 @@ const handleDownloadBill = async (bill) => {
                               <span className="item-variant"> ({item.attributeValue})</span>
                             )}
                           </td>
+                          <td>{item.hsn || (item.product?.hsn ?? 'N/A')}</td>
                           <td>{item.quantity}</td>
                           <td>Rs {parseFloat(item.unitPrice).toFixed(2)}</td>
                           <td>Rs {parseFloat(item.total).toFixed(2)}</td>
@@ -596,6 +670,27 @@ const handleDownloadBill = async (bill) => {
               </button>
               <button className="btn-modal-close" onClick={() => setShowBillModal(false)}>
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingToggleBill && (
+        <div className="toggle-card-overlay" onClick={cancelToggleBillStatus}>
+          <div className="toggle-card" onClick={(event) => event.stopPropagation()}>
+            <h4>Confirm {pendingToggleBill.billNumber}</h4>
+            <p>
+              {pendingToggleBill.currentStatus === 1
+                ? 'Are you sure you want to disable this bill?'
+                : 'Are you sure you want to enable this bill?'}
+            </p>
+            <div className="toggle-card-actions">
+              <button className="btn-confirm" onClick={confirmToggleBillStatus}>
+                {pendingToggleBill.currentStatus === 1 ? 'Disable' : 'Enable'}
+              </button>
+              <button className="btn-cancel" onClick={cancelToggleBillStatus}>
+                Cancel
               </button>
             </div>
           </div>

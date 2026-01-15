@@ -243,12 +243,22 @@ const BillPage = () => {
 
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
-      
-      const imgProps = pdf.getImageProperties(imgData);
-      const pdfWidth = 210;
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeightOfImage = (canvas.height * pdfWidth) / canvas.width;
+      const pageHeight = pdf.internal.pageSize.getHeight();
 
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      let remainingHeight = pdfHeightOfImage;
+      let offsetY = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, offsetY, pdfWidth, pdfHeightOfImage);
+      remainingHeight -= pageHeight;
+
+      while (remainingHeight > 0) {
+        offsetY = remainingHeight - pdfHeightOfImage;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, offsetY, pdfWidth, pdfHeightOfImage);
+        remainingHeight -= pageHeight;
+      }
       
       const customerName = finalBillData.customerName.replace(/\s+/g, '_') || 'Customer';
       const billNo = finalBillData.billNo || 'BILL';

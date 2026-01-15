@@ -40,6 +40,7 @@
   align-items: center;
   gap: 0.35rem;
   text-transform: capitalize;
+  font-weight: 400;
 }
 
 .header-text .breadcrumb-separator {
@@ -48,7 +49,7 @@
 }
 
 .header-text .breadcrumb-active {
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .header-text .breadcrumbs-description {
@@ -956,6 +957,63 @@
 .toast-close:hover {
   background: #f3f4f6;
   color: #374151;
+}
+
+.toggle-card-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 15, 52, 0.45);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2200;
+  padding: 1rem;
+}
+
+.toggle-card {
+  background: white;
+  border-radius: 16px;
+  padding: 1.5rem;
+  width: min(460px, 100%);
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
+  text-align: left;
+}
+
+.toggle-card h4 {
+  margin-top: 0;
+  font-size: 1.15rem;
+  color: #111827;
+}
+
+.toggle-card p {
+  margin: 0.5rem 0 1.25rem;
+  color: #475467;
+  font-size: 0.95rem;
+}
+
+.toggle-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.toggle-card-actions button {
+  border-radius: 10px;
+  border: none;
+  padding: 0.65rem 1.4rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex: 1;
+}
+
+.toggle-card-actions .btn-confirm {
+  background: #dc2626;
+  color: white;
+}
+
+.toggle-card-actions .btn-cancel {
+  background: #f3f4f6;
+  color: #1f2933;
 }
 
 /* Responsive Design */

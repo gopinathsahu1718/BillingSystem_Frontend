@@ -56,7 +56,7 @@ function ChangePassword() {
       err.newPassword = 'Password must include an uppercase letter, lowercase letter, number, and special character.';
     }
 
-    if (form.newPassword !== form.confirmPassword) {
+    if (form.confirmPassword && form.newPassword !== form.confirmPassword) {
       err.confirmPassword = 'Passwords do not match';
     }
 
