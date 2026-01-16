@@ -25,6 +25,12 @@ const StoreManagement = () => {
     return `${STATIC_BASE}${cleanPath}`;
   };
 
+  // Helper function to truncate alt text to 10 characters
+  const getTruncatedAlt = (text) => {
+    if (!text) return '';
+    return text.length > 10 ? `${text.substring(0, 15)}...` : text;
+  };
+
   const sanitizeSkuInput = (rawValue) => {
     const value = rawValue || "";
     const stripped = value.replace(/[^a-zA-Z0-9_-]/g, "");
@@ -35,6 +41,55 @@ const StoreManagement = () => {
   };
 
   const SKU_INVALID_MESSAGE = "SKU include only letters, numbers, -, _";
+
+  // Paste handlers to prevent invalid input from clipboard
+  const handleNumericPaste = (e) => {
+    const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+    if (!/^\d*\.?\d*$/.test(pastedText)) {
+      e.preventDefault();
+      showToast("error", "Invalid Input", "This field only accepts numbers and decimal points.");
+    }
+  };
+
+  const handleHsnPaste = (e) => {
+    const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+    if (!/^\d{0,8}$/.test(pastedText)) {
+      e.preventDefault();
+      showToast("error", "Invalid HSN", "HSN can only contain up to 8 digits.");
+    }
+  };
+
+  const handleSkuPaste = (e) => {
+    const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+    if (!/^[a-zA-Z0-9_\-]*$/.test(pastedText)) {
+      e.preventDefault();
+      showToast("error", "Invalid SKU", SKU_INVALID_MESSAGE);
+    }
+  };
+
+  const handleLetterOnlyPaste = (e) => {
+    const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+    if (!/^[a-zA-Z]*$/.test(pastedText)) {
+      e.preventDefault();
+      showToast("error", "Invalid Input", "This field only accepts letters.");
+    }
+  };
+
+  const handleLetterNumberPaste = (e) => {
+    const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+    if (!/^[a-zA-Z0-9]*$/.test(pastedText)) {
+      e.preventDefault();
+      showToast("error", "Invalid Input", "This field only accepts letters and numbers.");
+    }
+  };
+
+  // Prevent 'e', '+', '-' in number fields (except for decimal point and minus sign at start)
+  const handleNumberKeyPress = (e) => {
+    const invalidChars = ['e', 'E', '+'];
+    if (invalidChars.includes(e.key)) {
+      e.preventDefault();
+    }
+  };
 
 const PREDEFINED_CATEGORIES = [
   { label: "Laxmi Bookstore", value: "laxmi_bookstore", displayName: "Laxmi Bookstore" },
@@ -82,6 +137,12 @@ const PREDEFINED_CATEGORIES = [
     sku: "",
   });
   const [editingAttributeIndex, setEditingAttributeIndex] = useState(null);
+
+  // Pagination states
+  const ITEMS_PER_PAGE = 10;
+  const [currentCategoryPage, setCurrentCategoryPage] = useState(1);
+  const [currentSubcategoryPage, setCurrentSubcategoryPage] = useState(1);
+  const [currentProductPage, setCurrentProductPage] = useState(1);
 
   // Form states
   const initialCategoryForm = { 
@@ -1209,9 +1270,33 @@ const handlePredefinedCategoryChange = (selectedOption) => {
 
   const filteredProducts = products.filter(
     (p) =>
-      p && p.name && p.name.toLowerCase().includes(searchProduct.toLowerCase()) &&
+      p && (
+        (p.name && p.name.toLowerCase().includes(searchProduct.toLowerCase())) ||
+        (p.sku && p.sku.toLowerCase().includes(searchProduct.toLowerCase()))
+      ) &&
       (!selectedSubcategoryFilter || p.subCategoryId === selectedSubcategoryFilter.value)
   );
+
+  // Pagination calculations for categories
+  const categoryIndexOfLast = currentCategoryPage * ITEMS_PER_PAGE;
+  const categoryIndexOfFirst = categoryIndexOfLast - ITEMS_PER_PAGE;
+  const paginatedCategories = filteredCategories.slice(categoryIndexOfFirst, categoryIndexOfLast);
+  const totalCategoryPages = Math.ceil(filteredCategories.length / ITEMS_PER_PAGE);
+  const paginateCategories = (pageNumber) => setCurrentCategoryPage(pageNumber);
+
+  // Pagination calculations for subcategories
+  const subcategoryIndexOfLast = currentSubcategoryPage * ITEMS_PER_PAGE;
+  const subcategoryIndexOfFirst = subcategoryIndexOfLast - ITEMS_PER_PAGE;
+  const paginatedSubcategories = filteredSubcategories.slice(subcategoryIndexOfFirst, subcategoryIndexOfLast);
+  const totalSubcategoryPages = Math.ceil(filteredSubcategories.length / ITEMS_PER_PAGE);
+  const paginateSubcategories = (pageNumber) => setCurrentSubcategoryPage(pageNumber);
+
+  // Pagination calculations for products
+  const productIndexOfLast = currentProductPage * ITEMS_PER_PAGE;
+  const productIndexOfFirst = productIndexOfLast - ITEMS_PER_PAGE;
+  const paginatedProducts = filteredProducts.slice(productIndexOfFirst, productIndexOfLast);
+  const totalProductPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const paginateProducts = (pageNumber) => setCurrentProductPage(pageNumber);
 
   const categoryNameOptions = categories
     .filter(cat => cat && cat.name)
@@ -1308,12 +1393,15 @@ const handlePredefinedCategoryChange = (selectedOption) => {
   const clearCurrentFilters = () => {
     if (activeTab === "categories") {
       setSearchCategory("");
+      setCurrentCategoryPage(1);
     } else if (activeTab === "subcategories") {
       setSearchSubcategory("");
       setSelectedCategoryFilter(null);
+      setCurrentSubcategoryPage(1);
     } else if (activeTab === "products") {
       setSearchProduct("");
       setSelectedSubcategoryFilter(null);
+      setCurrentProductPage(1);
     }
   };
 
@@ -1507,16 +1595,16 @@ const handlePredefinedCategoryChange = (selectedOption) => {
                 </tr>
               </thead>
               <tbody>
-                {filteredCategories.map((cat, i) => (
+                {paginatedCategories.map((cat, i) => (
                   <tr key={cat.id || i}>
-                    <td data-label="#">{i + 1}</td>
+                    <td data-label="#">{(currentCategoryPage - 1) * ITEMS_PER_PAGE + i + 1}</td>
                     <td data-label="Name" className="name-cell">{cat.name}</td>
                     <td data-label="Description" className="description-cell">{cat.description || "N/A"}</td>
                     <td data-label="Thumbnail">
                       {cat.thumbnail ? (
-                        <img src={cat.thumbnail} alt={cat.name} width="50" className="category-thumbnail" />
+                        <img src={cat.thumbnail} alt={getTruncatedAlt(cat.name)} width="50" className="category-thumbnail" />
                       ) : (
-                        "No Image"
+                        <div className="thumbnail-placeholder">No Image</div>
                       )}
                     </td>
                     <td data-label="Created Date">{cat.date}</td>
@@ -1535,6 +1623,33 @@ const handlePredefinedCategoryChange = (selectedOption) => {
                 ))}
               </tbody>
             </table>
+            {totalCategoryPages > 1 && (
+              <div className="pagination">
+                <button 
+                  className="page-btn" 
+                  onClick={() => paginateCategories(currentCategoryPage - 1)}
+                  disabled={currentCategoryPage === 1}
+                >
+                  ← Previous
+                </button>
+                {Array.from({ length: totalCategoryPages }, (_, i) => (
+                  <button
+                    key={i + 1}
+                    className={`page-btn ${currentCategoryPage === i + 1 ? 'active' : ''}`}
+                    onClick={() => paginateCategories(i + 1)}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+                <button 
+                  className="page-btn" 
+                  onClick={() => paginateCategories(currentCategoryPage + 1)}
+                  disabled={currentCategoryPage === totalCategoryPages}
+                >
+                  Next →
+                </button>
+              </div>
+            )}
           </div>
         )
       )}
@@ -1720,17 +1835,17 @@ const handlePredefinedCategoryChange = (selectedOption) => {
               </tr>
             </thead>
             <tbody>
-              {filteredSubcategories.map((subcat, i) => (
+              {paginatedSubcategories.map((subcat, i) => (
                 <tr key={subcat.id || i}>
-                  <td data-label="#">{i + 1}</td>
+                  <td data-label="#">{(currentSubcategoryPage - 1) * ITEMS_PER_PAGE + i + 1}</td>
                   <td data-label="Name" className="name-cell">{subcat.name}</td>
                   <td data-label="Category">{subcat.categoryName}</td>
                   <td data-label="Description" className="description-cell">{subcat.description || "N/A"}</td>
                   <td data-label="Thumbnail">
                     {subcat.thumbnail ? (
-                      <img src={subcat.thumbnail} alt={subcat.name} width="50" className="category-thumbnail" />
+                      <img src={subcat.thumbnail} alt={getTruncatedAlt(subcat.name)} width="50" className="category-thumbnail" />
                     ) : (
-                      "No Image"
+                      <div className="thumbnail-placeholder">No Image</div>
                     )}
                   </td>
                   <td data-label="Created Date">{subcat.date}</td>
@@ -1749,6 +1864,33 @@ const handlePredefinedCategoryChange = (selectedOption) => {
               ))}
             </tbody>
           </table>
+          {totalSubcategoryPages > 1 && (
+            <div className="pagination">
+              <button 
+                className="page-btn" 
+                onClick={() => paginateSubcategories(currentSubcategoryPage - 1)}
+                disabled={currentSubcategoryPage === 1}
+              >
+                ← Previous
+              </button>
+              {Array.from({ length: totalSubcategoryPages }, (_, i) => (
+                <button
+                  key={i + 1}
+                  className={`page-btn ${currentSubcategoryPage === i + 1 ? 'active' : ''}`}
+                  onClick={() => paginateSubcategories(i + 1)}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              <button 
+                className="page-btn" 
+                onClick={() => paginateSubcategories(currentSubcategoryPage + 1)}
+                disabled={currentSubcategoryPage === totalSubcategoryPages}
+              >
+                Next →
+              </button>
+            </div>
+          )}
         </div>
       )}
     </>
@@ -1760,7 +1902,7 @@ const handlePredefinedCategoryChange = (selectedOption) => {
         <div className="lms-header">
           <input
             type="text"
-            placeholder="Search by name..."
+            placeholder="Search by name or SKU..."
             value={searchProduct}
             onChange={(e) => setSearchProduct(e.target.value)}
             className="search-input"
@@ -1956,6 +2098,7 @@ const handlePredefinedCategoryChange = (selectedOption) => {
                           placeholder="e.g., PEN-REY-001"
                           value={productForm.sku}
                           onChange={handleProductOtherChange}
+                          onPaste={handleSkuPaste}
                           maxLength={30}
                           className={productInvalid.sku ? 'input-invalid' : ''}
                         />
@@ -1974,6 +2117,7 @@ const handlePredefinedCategoryChange = (selectedOption) => {
                           placeholder="e.g., 49011010"
                           value={productForm.hsn}
                           onChange={handleProductOtherChange}
+                          onPaste={handleHsnPaste}
                           maxLength={8}
                         />
                         <span className="char-count">{productForm.hsn.length}/8</span>
@@ -1994,6 +2138,8 @@ const handlePredefinedCategoryChange = (selectedOption) => {
                           placeholder="e.g., 18"
                           value={productForm.gstRate}
                           onChange={handleProductOtherChange}
+                          onPaste={handleNumericPaste}
+                          onKeyPress={handleNumberKeyPress}
                           min="0"
                           max="100"
                           step="0.01"
@@ -2039,6 +2185,8 @@ const handlePredefinedCategoryChange = (selectedOption) => {
                           placeholder="₹10"
                           value={productForm.price}
                           onChange={handleProductOtherChange}
+                          onPaste={handleNumericPaste}
+                          onKeyPress={handleNumberKeyPress}
                           min="0"
                           step="0.01"
                           className={productInvalid.price ? 'input-invalid' : ''}
@@ -2058,6 +2206,8 @@ const handlePredefinedCategoryChange = (selectedOption) => {
                           placeholder="₹15"
                           value={productForm.actualPrice}
                           onChange={handleProductOtherChange}
+                          onPaste={handleNumericPaste}
+                          onKeyPress={handleNumberKeyPress}
                           min="0"
                           step="0.01"
                         />
@@ -2093,6 +2243,8 @@ const handlePredefinedCategoryChange = (selectedOption) => {
                           placeholder="e.g., 100"
                           value={productForm.stock}
                           onChange={handleProductOtherChange}
+                          onPaste={handleNumericPaste}
+                          onKeyPress={handleNumberKeyPress}
                           min="0"
                         />
                       </div>
@@ -2214,6 +2366,7 @@ const handlePredefinedCategoryChange = (selectedOption) => {
                               placeholder="e.g., Weight, Size, Volume, Color"
                               value={attributeForm.attributeName}
                               onChange={handleAttributeChange}
+                              onPaste={handleLetterOnlyPaste}
                               maxLength={100}
                             />
                           </div>
@@ -2230,6 +2383,7 @@ const handlePredefinedCategoryChange = (selectedOption) => {
                               placeholder="e.g., 20g, Small, 500ml, Red"
                               value={attributeForm.attributeValue}
                               onChange={handleAttributeChange}
+                              onPaste={handleLetterNumberPaste}
                               maxLength={50}
                             />
                           </div>
@@ -2248,6 +2402,7 @@ const handlePredefinedCategoryChange = (selectedOption) => {
                               placeholder="e.g., PEN-REY-001-20G"
                               value={attributeForm.sku}
                               onChange={handleAttributeChange}
+                              onPaste={handleSkuPaste}
                               maxLength={30}
                             />
                             <span className="char-count">{attributeForm.sku.length}/30</span>
@@ -2266,6 +2421,8 @@ const handlePredefinedCategoryChange = (selectedOption) => {
                               placeholder="e.g., 100"
                               value={attributeForm.stock}
                               onChange={handleAttributeChange}
+                              onPaste={handleNumericPaste}
+                              onKeyPress={handleNumberKeyPress}
                               min="0"
                             />
                           </div>
@@ -2285,6 +2442,8 @@ const handlePredefinedCategoryChange = (selectedOption) => {
                               placeholder="₹10"
                               value={attributeForm.price}
                               onChange={handleAttributeChange}
+                              onPaste={handleNumericPaste}
+                              onKeyPress={handleNumberKeyPress}
                               min="0"
                               step="0.01"
                             />
@@ -2303,6 +2462,8 @@ const handlePredefinedCategoryChange = (selectedOption) => {
                               placeholder="₹15"
                               value={attributeForm.actualPrice}
                               onChange={handleAttributeChange}
+                              onPaste={handleNumericPaste}
+                              onKeyPress={handleNumberKeyPress}
                               min="0"
                               step="0.01"
                             />
@@ -2390,9 +2551,9 @@ const handlePredefinedCategoryChange = (selectedOption) => {
               </tr>
             </thead>
             <tbody>
-              {filteredProducts.map((p, i) => (
+              {paginatedProducts.map((p, i) => (
                 <tr key={p.id || i}>
-                  <td data-label="#">{i + 1}</td>
+                  <td data-label="#">{(currentProductPage - 1) * ITEMS_PER_PAGE + i + 1}</td>
                   <td data-label="Name" className="name-cell">{p.name}</td>
                   <td data-label="SKU">{p.sku}</td>
                   <td data-label="Category">{p.categoryName}</td>
@@ -2427,6 +2588,33 @@ const handlePredefinedCategoryChange = (selectedOption) => {
               ))}
             </tbody>
           </table>
+          {totalProductPages > 1 && (
+            <div className="pagination">
+              <button 
+                className="page-btn" 
+                onClick={() => paginateProducts(currentProductPage - 1)}
+                disabled={currentProductPage === 1}
+              >
+                ← Previous
+              </button>
+              {Array.from({ length: totalProductPages }, (_, i) => (
+                <button
+                  key={i + 1}
+                  className={`page-btn ${currentProductPage === i + 1 ? 'active' : ''}`}
+                  onClick={() => paginateProducts(i + 1)}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              <button 
+                className="page-btn" 
+                onClick={() => paginateProducts(currentProductPage + 1)}
+                disabled={currentProductPage === totalProductPages}
+              >
+                Next →
+              </button>
+            </div>
+          )}
         </div>
       )}
     </>
