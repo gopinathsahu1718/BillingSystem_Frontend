@@ -18,14 +18,14 @@ function MobileHeader({ sidebarOpen, setSidebarOpen }) {
             <div className="logo-icon-mobile">
               <img
                 className="rounded-3"
-                src="hearingzen_logo.jpeg"
-                alt="HearingZen"
+                src="lord_ganesha.jpeg"
+                alt="Billing System"
                 width="40"
                 height="40"
               />
             </div>
             <div className="logo-text-mobile">
-              <span className="company-name-mobile fw-semibold">HearingZen</span>
+              <span className="company-name-mobile fw-semibold">Billing System</span>
               <div className="admin-text-mobile">Admin</div>
             </div>
           </div>
