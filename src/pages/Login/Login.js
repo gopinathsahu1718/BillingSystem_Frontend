@@ -42,8 +42,8 @@ function Login() {
                 <div className="login-header">
                     <div className="logo-section-login">
                         <img
-                            src="/hearingzen_logo.jpeg"
-                            alt="HearingZen"
+                            src="/lord_ganesha.jpeg"
+                            alt="Billing system"
                             className="login-logo"
                         />
                     </div>
