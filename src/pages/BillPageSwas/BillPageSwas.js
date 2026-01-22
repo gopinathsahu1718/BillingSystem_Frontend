@@ -265,7 +265,7 @@ const BillPageSwas = () => {
     } catch (error) {
       console.error('Failed to download PDF:', error);
       alert('Failed to download PDF. Please try again.');
-    } finally {gi
+    } finally {
       downloadLockRef.current = false;
     }
   };
