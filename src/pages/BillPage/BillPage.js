@@ -207,19 +207,23 @@ const BillPage = () => {
   };
 
   const handlePrint = () => {
-    const originalTitle = document.title;
-    const customerName = finalBillData.customerName.replace(/\s+/g, '_') || 'Customer';
-    const billNo = finalBillData.billNo || 'BILL';
-    document.title = `${billNo}-${customerName}`;
+  const originalTitle = document.title;
+  const customerName = finalBillData.customerName.replace(/\s+/g, '_') || 'Customer';
+  const billNo = finalBillData.billNo || 'BILL';
+  document.title = `${billNo}-${customerName}`;
+  
+  // Force a reflow before printing
+  window.setTimeout(() => {
+    window.print();
     
+    // Restore title after print dialog closes
     window.addEventListener('afterprint', () => {
       document.title = originalTitle;
     }, { once: true });
-    
-    window.print();
-  };
+  }, 100);
+};
 
-  const handleDownload = async () => {
+const handleDownload = async () => {
     if (downloadLockRef.current) {
       return;
     }
@@ -238,26 +242,23 @@ const BillPage = () => {
         logging: false,
         backgroundColor: '#ffffff',
         width: billWidth,
-        height: billHeight
+        height: billHeight,
+        windowHeight: billHeight
       });
 
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeightOfImage = (canvas.height * pdfWidth) / canvas.width;
-      const pageHeight = pdf.internal.pageSize.getHeight();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+      const totalPages = Math.max(1, Math.ceil(imgHeight / pdfHeight));
 
-      let remainingHeight = pdfHeightOfImage;
-      let offsetY = 0;
-
-      pdf.addImage(imgData, 'PNG', 0, offsetY, pdfWidth, pdfHeightOfImage);
-      remainingHeight -= pageHeight;
-
-      while (remainingHeight > 0) {
-        offsetY = remainingHeight - pdfHeightOfImage;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, offsetY, pdfWidth, pdfHeightOfImage);
-        remainingHeight -= pageHeight;
+      for (let pageIndex = 0; pageIndex < totalPages; pageIndex++) {
+        if (pageIndex > 0) {
+          pdf.addPage();
+        }
+        const position = pageIndex * pdfHeight;
+        pdf.addImage(imgData, 'PNG', 0, -position, pdfWidth, imgHeight);
       }
       
       const customerName = finalBillData.customerName.replace(/\s+/g, '_') || 'Customer';
@@ -489,7 +490,7 @@ const BillPage = () => {
               <div className="signature-line">Authorized Signatory</div>
             </div>
           </div>
-          <div className="header-border"></div>
+          {/* <div className="header-border"></div> */}
         </div>
       </div>
     </div>

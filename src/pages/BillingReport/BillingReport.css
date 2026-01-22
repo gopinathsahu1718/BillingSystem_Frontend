@@ -1,6 +1,5 @@
 /* Billing Reports Page - Complete with all features */
 .billing-container {
-  /* padding: 2rem; */
   max-width: 1600px;
   margin: 0 auto;
   min-height: 100vh;
@@ -50,12 +49,6 @@
 
 .header-text .breadcrumb-active {
   font-weight: 400;
-}
-
-.header-text .breadcrumbs-description {
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 0.85rem;
-  margin-top: 0.25rem;
 }
 
 .header-stats {
@@ -498,6 +491,7 @@
 }
 
 .btn-view-small,
+.btn-print-small,
 .btn-download-small,
 .btn-toggle-small {
   padding: 0.5rem 0.75rem;
@@ -522,6 +516,17 @@
 .btn-view-small:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.btn-print-small {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+  min-width: 40px;
+}
+
+.btn-print-small:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
 }
 
 .btn-download-small {
@@ -795,10 +800,12 @@
   display: flex;
   gap: 1rem;
   justify-content: flex-end;
+  flex-wrap: wrap;
   position: sticky;
   bottom: 0;
 }
 
+.btn-modal-print,
 .btn-modal-download,
 .btn-modal-toggle,
 .btn-modal-close {
@@ -811,6 +818,16 @@
   border: none;
   display: flex;
   align-items: center;
+}
+
+.btn-modal-print {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+}
+
+.btn-modal-print:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
 }
 
 .btn-modal-download {
@@ -887,6 +904,10 @@
   border-left-color: #ef4444;
 }
 
+.toast-notification.info {
+  border-left-color: #3b82f6;
+}
+
 .toast-content {
   display: flex;
   align-items: flex-start;
@@ -920,6 +941,15 @@
 
 .toast-notification.error .toast-icon::before {
   content: "✕";
+}
+
+.toast-notification.info .toast-icon {
+  background: #dbeafe;
+  color: #3b82f6;
+}
+
+.toast-notification.info .toast-icon::before {
+  content: "i";
 }
 
 .toast-body {
@@ -1109,6 +1139,7 @@
   }
 
   .btn-view-small,
+  .btn-print-small,
   .btn-download-small,
   .btn-toggle-small {
     width: 100%;
@@ -1127,6 +1158,7 @@
     flex-direction: column;
   }
 
+  .btn-modal-print,
   .btn-modal-download,
   .btn-modal-toggle,
   .btn-modal-close {

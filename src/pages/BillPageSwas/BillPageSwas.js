@@ -128,6 +128,7 @@ const BillPageSwas = () => {
       // Calculate discount amount per unit
       const discountPerUnit = actualPrice > rate ? actualPrice - rate : 0;
       const totalDiscountAmount = discountPerUnit * qty;
+      const discountPercent = actualPrice > 0 ? parseFloat(((discountPerUnit / actualPrice) * 100).toFixed(2)) : 0;
       
       // Base amount (subtotal without GST) - this is the taxable amount
       const taxableAmount = rate * qty;
@@ -149,6 +150,7 @@ const BillPageSwas = () => {
         rate: rate,
         actualPrice: actualPrice,
         discount: totalDiscountAmount,
+        discountPercent,
         taxable: taxableAmount,
         cgst: cgst,
         sgst: sgst,
@@ -175,22 +177,6 @@ const BillPageSwas = () => {
     ? transformCartItems(finalBillData.cart) 
     : [];
 
-  const parseNumber = (value) => {
-    const numeric = parseFloat(value);
-    return Number.isNaN(numeric) ? 0 : numeric;
-  };
-
-  const getItemDiscountAmount = (item) => {
-    const rate = parseNumber(item.rate ?? item.price);
-    const actualPrice = parseNumber(
-      item.actualPrice ?? item.attribute?.actualPrice ?? item.attribute?.price
-    );
-    const quantity = parseInt(item.qty ?? item.quantity ?? 0, 10) || 0;
-    if (quantity === 0) return 0;
-    const perUnitDiscount = Math.max(actualPrice - rate, 0);
-    return parseFloat((perUnitDiscount * quantity).toFixed(2));
-  };
-
   const getItemHSN = (item) => {
     if (item.hsn) return item.hsn;
     if (item.product?.hsn) return item.product.hsn;
@@ -212,18 +198,21 @@ const BillPageSwas = () => {
   };
 
   const handlePrint = () => {
-    const originalTitle = document.title;
-    const customerName = finalBillData.customerName.replace(/\s+/g, '_') || 'Customer';
-    const billNo = finalBillData.billNo || 'BILL';
-    document.title = `${billNo}-${customerName}`;
+  const originalTitle = document.title;
+  const customerName = finalBillData.customerName.replace(/\s+/g, '_') || 'Customer';
+  const billNo = finalBillData.billNo || 'BILL';
+  document.title = `${billNo}-${customerName}`;
+  
+  // Force a reflow before printing
+  window.setTimeout(() => {
+    window.print();
     
+    // Restore title after print dialog closes
     window.addEventListener('afterprint', () => {
       document.title = originalTitle;
     }, { once: true });
-    
-    window.print();
-  };
-
+  }, 100);
+};
   const handleDownload = async () => {
     if (downloadLockRef.current) {
       return;
@@ -243,26 +232,23 @@ const BillPageSwas = () => {
         logging: false,
         backgroundColor: '#ffffff',
         width: billWidth,
-        height: billHeight
+        height: billHeight,
+        windowHeight: billHeight
       });
 
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
       const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-      const pageHeight = pdf.internal.pageSize.getHeight();
+      const totalPages = Math.max(1, Math.ceil(imgHeight / pdfHeight));
 
-      let remainingHeight = imgHeight;
-      let offsetY = 0;
-
-      pdf.addImage(imgData, 'PNG', 0, offsetY, pdfWidth, imgHeight);
-      remainingHeight -= pageHeight;
-
-      while (remainingHeight > 0) {
-        offsetY = remainingHeight - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, offsetY, pdfWidth, imgHeight);
-        remainingHeight -= pageHeight;
+      for (let pageIndex = 0; pageIndex < totalPages; pageIndex++) {
+        if (pageIndex > 0) {
+          pdf.addPage();
+        }
+        const position = pageIndex * pdfHeight;
+        pdf.addImage(imgData, 'PNG', 0, -position, pdfWidth, imgHeight);
       }
       
       const customerName = finalBillData.customerName.replace(/\s+/g, '_') || 'Customer';
@@ -279,7 +265,7 @@ const BillPageSwas = () => {
     } catch (error) {
       console.error('Failed to download PDF:', error);
       alert('Failed to download PDF. Please try again.');
-    } finally {
+    } finally {gi
       downloadLockRef.current = false;
     }
   };
@@ -387,25 +373,23 @@ const BillPageSwas = () => {
           {/* Items Table */}
           <table className="items-table-swas">
             <thead>
-              <tr>
-                <th className="col-serial-swas">#</th>
-                <th className="col-item-swas">Item Description</th>
-                <th className="col-hsn-swas">HSN</th>
-                <th className="col-qty-swas">Qty</th>
-                <th className="col-rate-swas">Rate</th>
-                <th className="col-discount-swas">Disc.</th>
-                <th className="col-taxable-swas">Taxable</th>
-                <th className="col-tax-swas">CGST<br/><span className="tax-sub-swas">(%)</span></th>
-                <th className="col-tax-swas">SGST<br/><span className="tax-sub-swas">(%)</span></th>
-                <th className="col-total-swas">Total</th>
-              </tr>
+                <tr>
+                  <th className="col-serial-swas">#</th>
+                  <th className="col-item-swas">Item Description</th>
+                  <th className="col-hsn-swas">HSN</th>
+                  <th className="col-qty-swas">Qty</th>
+                  <th className="col-rate-swas">Rate</th>
+                  <th className="col-discount-swas">Disc. (₹)</th>
+                  <th className="col-taxable-swas">Taxable</th>
+                  <th className="col-tax-swas">CGST<br/><span className="tax-sub-swas">(%)</span></th>
+                  <th className="col-tax-swas">SGST<br/><span className="tax-sub-swas">(%)</span></th>
+                  <th className="col-total-swas">Total</th>
+                </tr>
             </thead>
             <tbody>
               {items.length > 0 ? (
-                items.map((item) => {
-                  const discountAmount = getItemDiscountAmount(item);
-                  return (
-                    <tr key={item.id}>
+                items.map((item) => (
+                  <tr key={item.id}>
                     <td className="text-center-swas">{item.id}</td>
                     <td className="text-left-swas">
                       {item.name}
@@ -416,7 +400,7 @@ const BillPageSwas = () => {
                     <td className="text-center-swas">{getItemHSN(item)}</td>
                     <td className="text-center-swas">{item.qty}</td>
                     <td className="text-right-swas">₹{item.rate.toFixed(2)}</td>
-                    <td className="text-right-swas">₹{discountAmount.toFixed(2)}</td>
+                    <td className="text-right-swas">₹{(item.discount ?? 0).toFixed(2)}</td>
                     <td className="text-right-swas">₹{item.taxable.toFixed(2)}</td>
                     <td className="text-right-swas">
                       ₹{item.cgst.toFixed(2)}
@@ -429,9 +413,8 @@ const BillPageSwas = () => {
                       <span className="tax-rate-swas">({item.sgstRate}%)</span>
                     </td>
                     <td className="text-right-swas total-cell-swas">₹{item.total.toFixed(2)}</td>
-                    </tr>
-                  );
-                })
+                  </tr>
+                ))
               ) : (
                 <tr>
                   <td colSpan="10" className="text-center-swas empty-row-swas">
@@ -491,7 +474,7 @@ const BillPageSwas = () => {
           </div>
 
           {/* Bottom Decorative Strip */}
-          <div className="footer-strip-swas"></div>
+          {/* <div className="footer-strip-swas"></div> */}
         </div>
       </div>
     </div>

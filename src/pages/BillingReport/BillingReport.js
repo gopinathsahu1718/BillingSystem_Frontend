@@ -103,6 +103,22 @@ const BillingReport = () => {
     return storeProduct.hsn || null;
   };
 
+  const resolveActualPriceFromStore = (item) => {
+    const productId = item.product?.id || item.productId;
+    if (!productId) return 0;
+
+    const storeProduct = storeProductsMap[productId];
+    if (!storeProduct) return 0;
+
+    const attributeId = item.attribute?.id || item.attributeId;
+    if (attributeId && Array.isArray(storeProduct.attributes)) {
+      const variant = storeProduct.attributes.find((attr) => attr.id === attributeId);
+      return parseFloat(variant?.actualPrice || 0);
+    }
+
+    return parseFloat(storeProduct.actualPrice || 0);
+  };
+
   const enrichBillItemsWithHSN = (items = []) => {
     if (!Array.isArray(items)) return [];
     return items.map((item) => ({
@@ -111,10 +127,29 @@ const BillingReport = () => {
     }));
   };
 
+  const enrichBillItemsWithDiscount = (items = []) => {
+    if (!Array.isArray(items)) return [];
+    
+    return items.map((item) => {
+      const unitPrice = parseFloat(item.unitPrice || item.price || item.rate || 0);
+      const actualPrice = resolveActualPriceFromStore(item);
+      const quantity = parseInt(item.quantity || item.qty || 1);
+      
+      // Calculate discount
+      const discountPerUnit = actualPrice > unitPrice ? actualPrice - unitPrice : 0;
+      const totalDiscount = discountPerUnit * quantity;
+      
+      return {
+        ...item,
+        actualPrice: actualPrice,
+        discount: parseFloat(totalDiscount.toFixed(2))
+      };
+    });
+  };
+
   const filterBills = () => {
     let filtered = bills;
 
-    // Category filter
     filtered = filtered.filter((bill) => {
       if (bill.items && bill.items.length > 0) {
         const category = getCategoryFromBill(bill);
@@ -123,7 +158,6 @@ const BillingReport = () => {
       return false;
     });
 
-    // Search query filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -134,19 +168,16 @@ const BillingReport = () => {
       );
     }
 
-    // Payment mode filter
     if (paymentModeFilter !== "all") {
       filtered = filtered.filter((bill) => bill.paymentMode === paymentModeFilter);
     }
 
-    // Status filter
     if (statusFilter === "active") {
       filtered = filtered.filter((bill) => bill.isActive === 1);
     } else if (statusFilter === "disabled") {
       filtered = filtered.filter((bill) => bill.isActive === 0);
     }
 
-    // Date range filter
     if (dateFilter.startDate) {
       filtered = filtered.filter((bill) => {
         const billDate = new Date(bill.createdAt);
@@ -200,59 +231,127 @@ const BillingReport = () => {
     }
   };
 
-  // Replace the handleDownloadBill function in BillingReport.js with this:
-
-const handleDownloadBill = async (bill) => {
-  try {
-    showToast("info", "Please wait", "Generating PDF...");
-    
-    const category = getCategoryFromBill(bill);
-    const routePath = category === 'swasthik_enterprises' ? '/bill-page-swas' : '/bill-page';
-    
-    // Navigate to appropriate bill page with download flag
-    navigate(routePath, {
-      state: {
-        billData: {
-          billNo: bill.billNumber,
-          customerName: bill.customerName,
-          contactNo: bill.customerContact,
-          address: bill.customerAddress || '',
-          paymentMode: bill.paymentMode,
-          items: enrichBillItemsWithHSN(bill.items).map((item, index) => ({
-            id: index + 1,
-            name: item.productName || item.name || '',
-            hsn: item.hsn || '',
-            qty: item.quantity || item.qty || 0,
-            rate: parseFloat(item.unitPrice || item.price || item.rate || 0),
-            discount: parseFloat(item.discount || 0),
-            taxable: parseFloat(item.baseAmount || item.taxable || 0),
-            cgst: parseFloat(item.cgst || 0),
-            sgst: parseFloat(item.sgst || 0),
-            cgstRate: item.gst ? item.gst / 2 : 9,
-            sgstRate: item.gst ? item.gst / 2 : 9,
-            total: parseFloat(item.total || 0),
-            attributeName: item.attributeValue || item.attributeName || null
-          })),
-          grandTotal: parseFloat(bill.grandTotal),
-          summary: {
-            total: parseFloat(bill.grandTotal),
-            totalTax: parseFloat(bill.totalGST || 0),
-            subtotal: parseFloat(bill.subtotal || 0),
-            cgst: parseFloat(bill.cgst || 0),
-            sgst: parseFloat(bill.sgst || 0)
+  const handlePrintBill = async (bill) => {
+    try {
+      showToast("info", "Please wait", "Preparing bill for printing...");
+      
+      const category = getCategoryFromBill(bill);
+      const routePath = category === 'swasthik_enterprises' ? '/bill-page-swas' : '/bill-page';
+      
+      // Enrich items with HSN first, then with discount
+      const enrichedWithHSN = enrichBillItemsWithHSN(bill.items);
+      const enrichedItems = enrichBillItemsWithDiscount(enrichedWithHSN);
+      
+      // Calculate total discount
+      const totalDiscount = enrichedItems.reduce((sum, item) => sum + (item.discount || 0), 0);
+      
+      navigate(routePath, {
+        state: {
+          billData: {
+            billNo: bill.billNumber,
+            customerName: bill.customerName,
+            contactNo: bill.customerContact,
+            address: bill.customerAddress || '',
+            paymentMode: bill.paymentMode,
+            items: enrichedItems.map((item, index) => ({
+              id: index + 1,
+              name: item.productName || item.name || '',
+              hsn: item.hsn || '',
+              qty: item.quantity || item.qty || 0,
+              rate: parseFloat(item.unitPrice || item.price || item.rate || 0),
+              actualPrice: item.actualPrice || 0,
+              discount: item.discount || 0,
+              taxable: parseFloat(item.baseAmount || item.taxable || 0),
+              cgst: parseFloat(item.cgst || 0),
+              sgst: parseFloat(item.sgst || 0),
+              cgstRate: item.gst ? item.gst / 2 : 9,
+              sgstRate: item.gst ? item.gst / 2 : 9,
+              total: parseFloat(item.total || 0),
+              attributeName: item.attributeValue || item.attributeName || null
+            })),
+            grandTotal: parseFloat(bill.grandTotal),
+            summary: {
+              total: parseFloat(bill.grandTotal),
+              totalTax: parseFloat(bill.totalGST || 0),
+              subtotal: parseFloat(bill.subtotal || 0),
+              cgst: parseFloat(bill.cgst || 0),
+              sgst: parseFloat(bill.sgst || 0),
+              totalDiscount: parseFloat(totalDiscount.toFixed(2))
+            },
+            date: new Date(bill.createdAt).toLocaleDateString('en-IN'),
+            time: new Date(bill.createdAt).toLocaleTimeString('en-IN'),
+            store: category === 'swasthik_enterprises' ? 'swasthik' : 'laxmi'
           },
-          date: new Date(bill.createdAt).toLocaleDateString('en-IN'),
-          time: new Date(bill.createdAt).toLocaleTimeString('en-IN'),
-          store: category === 'swasthik_enterprises' ? 'swasthik' : 'laxmi'
-        },
-        autoDownload: true
-      }
-    });
-  } catch (error) {
-    console.error("Failed to download PDF:", error);
-    showToast("error", "Error", "Failed to download PDF");
-  }
-};
+          autoPrint: true,
+          fromReport: true
+        }
+      });
+    } catch (error) {
+      console.error("Failed to print bill:", error);
+      showToast("error", "Error", "Failed to print bill");
+    }
+  };
+
+  const handleDownloadBill = async (bill) => {
+    try {
+      showToast("info", "Please wait", "Generating PDF...");
+      
+      const category = getCategoryFromBill(bill);
+      const routePath = category === 'swasthik_enterprises' ? '/bill-page-swas' : '/bill-page';
+      
+      // Enrich items with HSN first, then with discount
+      const enrichedWithHSN = enrichBillItemsWithHSN(bill.items);
+      const enrichedItems = enrichBillItemsWithDiscount(enrichedWithHSN);
+      
+      // Calculate total discount
+      const totalDiscount = enrichedItems.reduce((sum, item) => sum + (item.discount || 0), 0);
+      
+      navigate(routePath, {
+        state: {
+          billData: {
+            billNo: bill.billNumber,
+            customerName: bill.customerName,
+            contactNo: bill.customerContact,
+            address: bill.customerAddress || '',
+            paymentMode: bill.paymentMode,
+            items: enrichedItems.map((item, index) => ({
+              id: index + 1,
+              name: item.productName || item.name || '',
+              hsn: item.hsn || '',
+              qty: item.quantity || item.qty || 0,
+              rate: parseFloat(item.unitPrice || item.price || item.rate || 0),
+              actualPrice: item.actualPrice || 0,
+              discount: item.discount || 0,
+              taxable: parseFloat(item.baseAmount || item.taxable || 0),
+              cgst: parseFloat(item.cgst || 0),
+              sgst: parseFloat(item.sgst || 0),
+              cgstRate: item.gst ? item.gst / 2 : 9,
+              sgstRate: item.gst ? item.gst / 2 : 9,
+              total: parseFloat(item.total || 0),
+              attributeName: item.attributeValue || item.attributeName || null
+            })),
+            grandTotal: parseFloat(bill.grandTotal),
+            summary: {
+              total: parseFloat(bill.grandTotal),
+              totalTax: parseFloat(bill.totalGST || 0),
+              subtotal: parseFloat(bill.subtotal || 0),
+              cgst: parseFloat(bill.cgst || 0),
+              sgst: parseFloat(bill.sgst || 0),
+              totalDiscount: parseFloat(totalDiscount.toFixed(2))
+            },
+            date: new Date(bill.createdAt).toLocaleDateString('en-IN'),
+            time: new Date(bill.createdAt).toLocaleTimeString('en-IN'),
+            store: category === 'swasthik_enterprises' ? 'swasthik' : 'laxmi'
+          },
+          autoDownload: true,
+          fromReport: true
+        }
+      });
+    } catch (error) {
+      console.error("Failed to download PDF:", error);
+      showToast("error", "Error", "Failed to download PDF");
+    }
+  };
 
   const handleToggleBillStatus = async (billId, currentStatus) => {
     const action = currentStatus === 1 ? 'disable' : 'enable';
@@ -330,7 +429,6 @@ const handleDownloadBill = async (bill) => {
                 {activeTab === "swasthik_enterprises" ? "Swasthik Enterprises" : "Laxmi Bookstore"}
               </span>
             </div>
-          
           </div>
           <div className="header-stats">
             <div className="stat-item">
@@ -508,6 +606,13 @@ const handleDownloadBill = async (bill) => {
                           <i className="bi bi-eye"></i>
                         </button>
                         <button
+                          className="btn-print-small"
+                          onClick={() => handlePrintBill(bill)}
+                          title="Print Bill"
+                        >
+                          <i className="bi bi-printer"></i>
+                        </button>
+                        <button
                           className="btn-download-small"
                           onClick={() => handleDownloadBill(bill)}
                           title="Download PDF"
@@ -654,6 +759,10 @@ const handleDownloadBill = async (bill) => {
               </div>
             </div>
             <div className="modal-footer">
+              <button className="btn-modal-print" onClick={() => handlePrintBill(viewingBill)}>
+                <i className="bi bi-printer me-2"></i>
+                Print
+              </button>
               <button className="btn-modal-download" onClick={() => handleDownloadBill(viewingBill)}>
                 <i className="bi bi-download me-2"></i>
                 Download PDF
@@ -661,7 +770,7 @@ const handleDownloadBill = async (bill) => {
               <button
                 className={`btn-modal-toggle ${viewingBill.isActive === 1 ? 'btn-disable' : 'btn-enable'}`}
                 onClick={() => {
-                  handleToggleBillStatus(viewingBill.id, viewingBill.isActive);
+                  promptToggleBillStatus(viewingBill);
                   setShowBillModal(false);
                 }}
               >
